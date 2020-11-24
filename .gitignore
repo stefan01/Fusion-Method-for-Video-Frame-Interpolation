@@ -1,0 +1,5 @@
+vimeo.zip
+davis.zip
+Trainset/
+Testset/*
+!Testset/*.mp4
