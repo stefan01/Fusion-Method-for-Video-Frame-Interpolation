@@ -43,17 +43,26 @@ def video_to_images(input_video, output_directory):
         success, image = vid.read()
         i += 1
 
+def videos_to_images(input_files, output_directory):
+    print(f'Extracting images from videos...')
+    for test_video in tqdm(iterable=input_files, total=len(input_files)):
+        output_path = os.path.basename(test_video)
+        output_path = os.path.splitext(output_path)[0]
+        if(not os.path.isdir(output_directory)):
+            video_to_images(test_video, f'{output_directory}/{output_path}/')
+
+#def images_to_triplets(input_files, output_directory):
+#    if os.path.isdir(output_directory):
+#        return
+#    root, dirs, files = os.walk(input_files).next()
+#    print(dirs)
+
 
 # Download and unzip Vimeo90k
-download_and_unzip('Vimeo', 'https://data.csail.mit.edu/tofu/dataset/vimeo_triplet.zip', 'vimeo.zip', 'Trainset/vimeo/')
+download_and_unzip('Vimeo', 'https://data.csail.mit.edu/tofu/dataset/vimeo_triplet.zip', 'Trainset/vimeo.zip', 'Trainset/vimeo/')
 
 # Download and unzip Davis
-download_and_unzip('Davis', 'https://graphics.ethz.ch/Downloads/Data/Davis/DAVIS-data.zip', 'davis.zip', 'Trainset/davis/')
+download_and_unzip('Davis', 'https://graphics.ethz.ch/Downloads/Data/Davis/DAVIS-data.zip', 'Trainset/davis.zip', 'Trainset/davis/')
 
 # Prepare Testset
-print('Extracting images from test videos...')
-test_videos = glob.glob('Testset/*.mp4')
-for test_video in tqdm(iterable=test_videos, total=len(test_videos)):
-    output_path = os.path.basename(test_video)
-    output_path = os.path.splitext(output_path)[0]
-    video_to_images(test_video, f'Testset/{output_path}/')
+videos_to_images(glob.glob('Testset/*.mp4'), 'Testset')
