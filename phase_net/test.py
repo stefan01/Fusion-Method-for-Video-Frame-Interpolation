@@ -3,6 +3,7 @@ import torch
 from collections import namedtuple
 import code
 from skimage import io
+import matplotlib.pyplot as plt
 
 from steerable.SCFpyr_PyTorch import SCFpyr_PyTorch
 import steerable.utils as utils
@@ -14,18 +15,19 @@ device = utils.get_device()
 pyr = SCFpyr_PyTorch(
     height=5,
     nbands=4,
-    scale_factor=np.sqrt(2),
-    device=device
+    # sqrt(2) not working correctly. Pyramid still uses 2 instead.
+    scale_factor=2,
+    device=device,
 )
 
-img = io.imread('./Lena.png')
+img = io.imread('./Lena.png')  # Format has to be (N, 1, H, W)
+img = torch.from_numpy(img).to(device).reshape(
+    img.shape[-1], 1, img.shape[0], img.shape[1])
 
-print(img.shape)
-# im_batch_numpy = utils.load_image_batch(
-#    batch_size=1, image_file='./Lena.png')
-#im_batch_torch = torch.from_numpy(im_batch_numpy).to(device)
 
-coeff = pyr.build(im_batch_torch)
+im_batch_numpy = utils.load_image_batch(
+    batch_size=2, image_file='./Lena.png')
+im_batch_torch = torch.from_numpy(im_batch_numpy).to(device)
 
 
 DecompValues = namedtuple(
@@ -35,13 +37,6 @@ DecompValues = namedtuple(
     'amplitude, '
     'low_level'
 )
-
-# print(len(coeff))
-# print(coeff[0].shape)  # (N, 200, 200)
-# print(coeff[1][0].shape)  # 4 List (N, 200, 200, 2)
-# print(len(coeff[2]))
-# print(len(coeff[3]))
-# print(coeff[4].shape)  # (N, 25, 25)
 
 
 """def extract_from_batch(coeff_batch, example_idx=0):
@@ -125,22 +120,40 @@ def values_to_coeff(values):
     coeff = []
     high_level = values.high_level.permute(2, 0, 1)
     low_level = values.low_level.permute(2, 0, 1)
-    for d in range(0, ndims):
-        levels = [[torch.complex(amplitude[d][level][band], torch.zeros(1, device=high_level.device)) * torch.exp(torch.complex(torch.zeros(1, device=high_level.device), phase[d][level][band]))
-                   for band in range(nbands)] for level in range(nlevels)]
-        levels.insert(0, torch.squeeze(high_level[d], -1))
-        levels.append(torch.squeeze(low_level[d], -1))
-        coeff.append(levels)
-    return coeff[0]
+    coeff.append(torch.squeeze(high_level, -1))
+    coeff.extend([[torch.stack(
+        [torch.complex(amplitude[d][level][band], torch.zeros(1, device=high_level.device))
+         * torch.exp(torch.complex(torch.zeros(1, device=high_level.device), phase[d][level][band]))
+         for d in range(0, ndims)],
+        dim=0).real
+        for band in range(nbands)] for level in range(nlevels)])
+    coeff.append(torch.squeeze(low_level, -1))
+    return coeff
 
 
+plt.subplot(1, 2, 1)
+plt.imshow(im_batch_numpy.reshape(400, 200), cmap='gray')
+
+# Psi
+coeff = pyr.build(im_batch_torch)
 vals = coeff_to_values(coeff)
 
-print(vals.amplitude[0].shape)
-
+# Psi^(-1)
 coeff_r = values_to_coeff(vals)
+im_batch_reconstructed = pyr.reconstruct(coeff_r)
 
-print(((coeff_r[3][1] - coeff[3][1]).abs() < 0.00001).all().item())
-print(len(coeff_r))
-print(len(coeff_r[1]))
-print(coeff_r[2][0].shape)
+# print(len(coeff))    # 5
+# print(coeff[0].shape)  # (N, 200, 200)
+# print(coeff[1][0].shape)  # 4 List (N, 200, 200, 2)
+# print(len(coeff[2]))
+# print(len(coeff[3]))
+# print(coeff[4].shape)  # (N, 25, 25)
+
+#print(((coeff_r[3][1] - coeff[3][1]).abs() < 0.00001).all().item())
+print(len(coeff_r))   # 5
+print(len(coeff_r[1]))  # 4
+print(coeff_r[1][0].shape)  # 4 List (200, 200, 2)
+
+plt.subplot(1, 2, 2)
+plt.imshow(im_batch_reconstructed.reshape(400, 200).cpu().numpy(), cmap='gray')
+plt.show()
