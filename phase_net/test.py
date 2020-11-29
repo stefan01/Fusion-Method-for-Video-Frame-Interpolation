@@ -22,7 +22,8 @@ pyr = SCFpyr_PyTorch(
 
 img = io.imread('./Lena.png')  # Format has to be (N, 1, H, W)
 img = torch.from_numpy(img).to(device).reshape(
-    img.shape[-1], 1, img.shape[0], img.shape[1])
+    img.shape[-1], 1, img.shape[0], img.shape[1]).float()
+img /= 255
 
 
 im_batch_numpy = utils.load_image_batch(
@@ -130,10 +131,10 @@ def values_to_coeff(values):
 
 
 plt.subplot(1, 2, 1)
-plt.imshow(im_batch_numpy.reshape(800, 200), cmap='gray')
+plt.imshow(img.cpu().numpy().reshape(256, 256, 3))
 
 # Psi
-coeff = pyr.build(im_batch_torch)
+coeff = pyr.build(img)
 vals = coeff_to_values(coeff)
 
 # Psi^(-1)
@@ -153,5 +154,6 @@ print(len(coeff_r[1]))  # 4
 print(coeff_r[1][0].shape)  # 4 List (200, 200, 2)
 
 plt.subplot(1, 2, 2)
-plt.imshow(im_batch_reconstructed.reshape(800, 200).cpu().numpy(), cmap='gray')
+plt.imshow(im_batch_reconstructed.reshape(
+    256, 256, 3).cpu().numpy())
 plt.show()
