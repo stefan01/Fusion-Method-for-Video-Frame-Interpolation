@@ -26,7 +26,7 @@ img = torch.from_numpy(img).to(device).reshape(
 
 
 im_batch_numpy = utils.load_image_batch(
-    batch_size=2, image_file='./Lena.png')
+    batch_size=4, image_file='./Lena.png')
 im_batch_torch = torch.from_numpy(im_batch_numpy).to(device)
 
 
@@ -77,9 +77,10 @@ def coeff_to_values(coeff):
 
     for level in range(0, nlevels):
         phase.append(torch.stack([torch.imag(torch.log(coeff[level+1][band][d].type(torch.complex64)))
-                                  for band in range(nbands) for d in range(ndims)], -1))
+                                  for d in range(ndims) for band in range(nbands)], -1))
         amplitude.append(torch.stack([torch.abs(coeff[level+1][band][d])
-                                      for band in range(nbands) for d in range(ndims)], -1))
+                                      for d in range(ndims) for band in range(nbands)], -1))
+    print(phase[0].shape, amplitude[0].shape)
 
     values = DecompValues(
         high_level=high_level,
@@ -95,9 +96,6 @@ def reorder(input, ndims):
     H, W, N, C = input[0].shape
     nbands = int(C/ndims)
     nlevels = len(input)
-    # elements = [torch.split(input[level], nbands*ndims, 3)
-    #            for level in range(nlevels)]
-    # print(elements)
     elements = [[torch.squeeze(input[j][:, :, :, i], -1)
                  for i in range(nbands*ndims)] for j in range(nlevels)]
     output = []
@@ -132,7 +130,7 @@ def values_to_coeff(values):
 
 
 plt.subplot(1, 2, 1)
-plt.imshow(im_batch_numpy.reshape(400, 200), cmap='gray')
+plt.imshow(im_batch_numpy.reshape(800, 200), cmap='gray')
 
 # Psi
 coeff = pyr.build(im_batch_torch)
@@ -155,5 +153,5 @@ print(len(coeff_r[1]))  # 4
 print(coeff_r[1][0].shape)  # 4 List (200, 200, 2)
 
 plt.subplot(1, 2, 2)
-plt.imshow(im_batch_reconstructed.reshape(400, 200).cpu().numpy(), cmap='gray')
+plt.imshow(im_batch_reconstructed.reshape(800, 200).cpu().numpy(), cmap='gray')
 plt.show()
