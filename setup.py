@@ -39,7 +39,7 @@ def video_to_images(input_video, output_directory):
     success, image = vid.read()
     i = 0
     while success:
-        cv2.imwrite(f'{output_directory}/{i}.png', image)
+        cv2.imwrite(f'{output_directory}/{str(i).zfill(3)}.png', image)
         success, image = vid.read()
         i += 1
 
@@ -48,7 +48,7 @@ def videos_to_images(input_files, output_directory):
     for test_video in tqdm(iterable=input_files, total=len(input_files)):
         output_path = os.path.basename(test_video)
         output_path = os.path.splitext(output_path)[0]
-        if(not os.path.isdir(output_directory)):
+        if(not os.path.isdir(f'{output_directory}/{output_path}/')):
             video_to_images(test_video, f'{output_directory}/{output_path}/')
 
 #def images_to_triplets(input_files, output_directory):
