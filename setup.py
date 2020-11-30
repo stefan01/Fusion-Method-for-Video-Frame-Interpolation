@@ -57,6 +57,11 @@ def videos_to_images(input_files, output_directory):
 #    root, dirs, files = os.walk(input_files).next()
 #    print(dirs)
 
+# Create Trainset dir
+try:
+    os.mkdir('Trainset')
+except OSError:
+    print ("Creation of the directory %s failed" % path)
 
 # Download and unzip Vimeo90k
 download_and_unzip('Vimeo', 'https://data.csail.mit.edu/tofu/dataset/vimeo_triplet.zip', 'Trainset/vimeo.zip', 'Trainset/vimeo/')
