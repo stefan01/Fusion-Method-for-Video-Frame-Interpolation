@@ -1,4 +1,5 @@
 from tqdm import tqdm
+import numpy as np
 import requests, zipfile, os, glob, cv2
 
 def download(url, filename):
@@ -37,8 +38,19 @@ def video_to_images(input_video, output_directory):
     os.makedirs(output_directory, exist_ok=True)
     vid = cv2.VideoCapture(input_video)
     success, image = vid.read()
+
+    # Random Crop Location
+    max_x = image.shape[1] - 256
+    max_y = image.shape[0] - 256
+    crop_x = np.random.randint(0, max_x)
+    crop_y = np.random.randint(0, max_y)
+
     i = 0
     while success:
+        # Crop Image
+        image = image[crop_y : crop_y + 256, crop_x : crop_x + 256]
+
+        # Write Image
         cv2.imwrite(f'{output_directory}/{str(i).zfill(3)}.png', image)
         success, image = vid.read()
         i += 1
@@ -57,6 +69,11 @@ def videos_to_images(input_files, output_directory):
 #    root, dirs, files = os.walk(input_files).next()
 #    print(dirs)
 
+# Create Trainset dir
+try:
+    os.mkdir('./Trainset')
+except OSError:
+    print ("Trainset already exists")
 
 # Download and unzip Vimeo90k
 download_and_unzip('Vimeo', 'https://data.csail.mit.edu/tofu/dataset/vimeo_triplet.zip', 'Trainset/vimeo.zip', 'Trainset/vimeo/')
