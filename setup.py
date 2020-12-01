@@ -1,4 +1,5 @@
 from tqdm import tqdm
+import numpy as np
 import requests, zipfile, os, glob, cv2
 
 def download(url, filename):
@@ -37,8 +38,19 @@ def video_to_images(input_video, output_directory):
     os.makedirs(output_directory, exist_ok=True)
     vid = cv2.VideoCapture(input_video)
     success, image = vid.read()
+
+    # Random Crop Location
+    max_x = image.shape[1] - 256
+    max_y = image.shape[0] - 256
+    crop_x = np.random.randint(0, max_x)
+    crop_y = np.random.randint(0, max_y)
+
     i = 0
     while success:
+        # Crop Image
+        image = image[crop_y : crop_y + 256, crop_x : crop_x + 256]
+
+        # Write Image
         cv2.imwrite(f'{output_directory}/{i}.png', image)
         success, image = vid.read()
         i += 1
@@ -48,7 +60,7 @@ def videos_to_images(input_files, output_directory):
     for test_video in tqdm(iterable=input_files, total=len(input_files)):
         output_path = os.path.basename(test_video)
         output_path = os.path.splitext(output_path)[0]
-        if(not os.path.isdir(output_directory)):
+        if(not os.path.isdir(f'{output_directory}/{output_path}/')):
             video_to_images(test_video, f'{output_directory}/{output_path}/')
 
 #def images_to_triplets(input_files, output_directory):
