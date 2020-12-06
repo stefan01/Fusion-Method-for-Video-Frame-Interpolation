@@ -17,7 +17,7 @@ DecompValues = namedtuple(
 )
 
 
-class Steerable:
+class Pyramid:
     def __init__(self, height, nbands, scale_factor, device):
         self.height = height
         self.nbands = nbands
@@ -86,8 +86,8 @@ class Steerable:
 
     def values_to_coeff(self, values):
         H, W, ndims = values.high_level.shape
-        amplitude = reorder(values.amplitude, ndims)
-        phase = reorder(values.phase, ndims)
+        amplitude = self.reorder(values.amplitude, ndims)
+        phase = self.reorder(values.phase, ndims)
         nlevels = len(phase[0])
         nbands = len(phase[0][0])
 
