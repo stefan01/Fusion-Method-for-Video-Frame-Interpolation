@@ -1,4 +1,8 @@
 .vscode/
 __pycache__/
-Lena.png
 Trainset/
+vimeo.zip
+davis.zip
+Trainset/
+Testset/*
+!Testset/*.mp4
