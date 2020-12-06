@@ -1,4 +1,6 @@
 from pyramid import Pyramid
+from datareader import DBreader_Vimeo90k
+from torch.utils.data import DataLoader
 import numpy as np
 import torch
 from collections import namedtuple
@@ -20,20 +22,17 @@ pyr = Pyramid(
     device=device,
 )
 
+dataset = DBreader_Vimeo90k('./Trainset/vimeo/vimeo_triplet', random_crop=(256, 256))
+train_loader = DataLoader(dataset=dataset, batch_size=1, shuffle=True, num_workers=0)
 
-img = io.imread('./Lena.png')  # Format has to be (N, 1, H, W)
-img = torch.from_numpy(img).to(device).reshape(
-    img.shape[-1], 1, img.shape[0], img.shape[1]).float()
-img /= 255
+print(len(dataset[0])) #3
+print(dataset[0][0].shape) # [3, 256, 256]
+print(len(dataset)) # 73191
 
-
-im_batch_numpy = utils.load_image_batch(
-    batch_size=4, image_file='./Lena.png')
-im_batch_torch = torch.from_numpy(im_batch_numpy).to(device)
-
+img = dataset[0][0].to(device).unsqueeze(1)
 
 plt.subplot(1, 2, 1)
-plt.imshow(img.cpu().numpy().reshape(256, 256, 3))
+plt.imshow(img.cpu().squeeze(1).permute(1, 2, 0).numpy())
 
 # Psi
 vals = pyr.filter(img)
@@ -42,6 +41,5 @@ vals = pyr.filter(img)
 img_r = pyr.inv_filter(vals)
 
 plt.subplot(1, 2, 2)
-plt.imshow(img_r.reshape(
-    256, 256, 3).cpu().numpy())
+plt.imshow(img_r.cpu().squeeze(1).permute(1, 2, 0).numpy())
 plt.show()
