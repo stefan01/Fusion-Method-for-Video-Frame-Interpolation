@@ -1,3 +1,6 @@
+.vscode/
+__pycache__/
+Trainset/
 vimeo.zip
 davis.zip
 Trainset/
