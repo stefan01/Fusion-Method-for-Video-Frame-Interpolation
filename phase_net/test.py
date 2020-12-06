@@ -13,10 +13,10 @@ warnings.filterwarnings("ignore")
 device = utils.get_device()
 
 pyr = SCFpyr_PyTorch(
-    height=5,
+    height=12,
     nbands=4,
     # sqrt(2) not working correctly. Pyramid still uses 2 instead.
-    scale_factor=2,
+    scale_factor=np.sqrt(2),
     device=device,
 )
 
@@ -141,6 +141,10 @@ vals = coeff_to_values(coeff)
 coeff_r = values_to_coeff(vals)
 im_batch_reconstructed = pyr.reconstruct(coeff_r)
 
+print(vals.high_level.shape)
+
+for i in range(1, 12):
+    print(coeff[i][0].shape)
 # print(len(coeff))    # 5
 # print(coeff[0].shape)  # (N, 200, 200)
 # print(coeff[1][0].shape)  # 4 List (N, 200, 200, 2)
