@@ -34,7 +34,7 @@ def download_and_unzip(name, url, zip_filename, target_directory):
         unzip(zip_filename, target_directory)
 
 
-def video_to_images(input_video, output_directory):
+def video_to_images(input_video, output_directory, crop=False, resize=False, newSize=(1280,720)):
     os.makedirs(output_directory, exist_ok=True)
     vid = cv2.VideoCapture(input_video)
     success, image = vid.read()
@@ -48,20 +48,39 @@ def video_to_images(input_video, output_directory):
     i = 0
     while success:
         # Crop Image
-        image = image[crop_y : crop_y + 256, crop_x : crop_x + 256]
+        if crop:
+            image = image[crop_y : crop_y + 256, crop_x : crop_x + 256]
+
+        # Resize Image
+        image = cv2.resize(image, newSize)
 
         # Write Image
         cv2.imwrite(f'{output_directory}/{str(i).zfill(3)}.png', image)
         success, image = vid.read()
         i += 1
 
-def videos_to_images(input_files, output_directory):
+def videos_to_images(input_files, output_directory, crop=False, resize=False, newSize=(1280,720)):
     print(f'Extracting images from videos...')
     for test_video in tqdm(iterable=input_files, total=len(input_files)):
         output_path = os.path.basename(test_video)
         output_path = os.path.splitext(output_path)[0]
         if(not os.path.isdir(f'{output_directory}/{output_path}/')):
-            video_to_images(test_video, f'{output_directory}/{output_path}/')
+            video_to_images(test_video, f'{output_directory}/{output_path}/', crop, resize, newSize)
+
+def images_to_video(input_images, output_file, framerate=30):
+    print(f'Combining images to video')
+    imgs = []
+    size = (1920, 1080)
+    for image_file in input_images:
+        img = cv2.imread(image_file)
+        height, width, layers = img.shape
+        size = (width, height)
+        imgs.append(img)
+
+    out = cv2.VideoWriter(output_file, cv2.VideoWriter.fourcc(*'MPEG'), framerate, size)
+    for img in tqdm(iterable=imgs, total=len(imgs)):
+        out.write(img)
+    out.release()
 
 #def images_to_triplets(input_files, output_directory):
 #    if os.path.isdir(output_directory):
@@ -82,4 +101,6 @@ download_and_unzip('Vimeo', 'https://data.csail.mit.edu/tofu/dataset/vimeo_tripl
 download_and_unzip('Davis', 'https://graphics.ethz.ch/Downloads/Data/Davis/DAVIS-data.zip', 'Trainset/davis.zip', 'Trainset/davis/')
 
 # Prepare Testset
-videos_to_images(glob.glob('Testset/*.mp4'), 'Testset')
+videos_to_images(glob.glob('Testset/*.mp4'), 'Testset', resize=True)
+
+#images_to_video(glob.glob('Testset/Clip1/*.png'), 'Testset/c1.avi')
