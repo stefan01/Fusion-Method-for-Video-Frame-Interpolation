@@ -100,6 +100,17 @@ download_and_unzip('Vimeo', 'https://data.csail.mit.edu/tofu/dataset/vimeo_tripl
 # Download and unzip Davis
 download_and_unzip('Davis', 'https://graphics.ethz.ch/Downloads/Data/Davis/DAVIS-data.zip', 'Trainset/davis.zip', 'Trainset/davis/')
 
+# Download and unzip NFS (need for speed)
+for (url, name) in [
+    ('https://cmu.box.com/shared/static/gl5o6qmq7i8da8w4px55ykvffjufw2m6.zip', 'airboard_1'),
+    ('https://cmu.box.com/shared/static/kbx27fz51udgk4k08qh6l0yjmn9h3743.zip', 'airplane_landing'),
+    ('https://cmu.box.com/shared/static/tuizb68pqafhooo4753nrk4b2iwwrmj8.zip', 'airtable_3'),
+    ('https://cmu.box.com/shared/static/k9rkgfqp4ww7hickuo37z68d5l032fdx.zip', 'basketball_1'),
+    ('https://cmu.box.com/shared/static/dsnxt9fqriivqilcqgul2v6b0k2g36xk.zip', 'water_ski_2'),
+    ('https://cmu.box.com/shared/static/9m2bvwtrii9bwwqn4lr1cv09jtvfd4xi.zip', 'yoyo')
+]:
+    download_and_unzip(f'NFS {name}', url, f'Testset/nfs/{name}.zip', f'Testset/nfs/{name}/')
+
 # Prepare Testset
 videos_to_images(glob.glob('Testset/*.mp4'), 'Testset', resize=True)
 
