@@ -50,29 +50,34 @@ def interpolate_dataset(dataset_path):
 # Takes interpolated images a and c
 # and compares the result with b
 def evaluate_datasets(dataset_path):
-    predictionFolder = datasets.ImageFolder(tmp_dir, transform=transforms.ToTensor)
-    targetFolder = datasets.ImageFolder(dataset_path, transform=transforms.ToTensor)
+    #predictionFolder = datasets.ImageFolder(tmp_dir, transform=transforms.ToTensor)
+    #targetFolder = datasets.ImageFolder(dataset_path, transform=transforms.ToTensor)
 
-    predictionsLoader = torch.utils.data.DataLoader(predictionFolder)
-    targetsLoader = torch.utils.data.DataLoader(targetFolder)
+    #predictionsLoader = torch.utils.data.DataLoader(predictionFolder)
+    #targetsLoader = torch.utils.data.DataLoader(targetFolder)
 
-    print(len(predictionsLoader))
-    print(len(targetsLoader))
+    #print(len(predictionsLoader))
+    #print(len(targetsLoader))
 
-    predictions = iter(predictionsLoader)
-    targets = iter(targetsLoader)
+    #predictions = iter(predictionsLoader)
+    #targets = iter(targetsLoader)
 
     # Skip first image
-    next(targets)
+    #next(targets)
 
-    results = []
+    #results = []
 
     #it = range(1, len(targets))
-    it = zip(predictions, targets)
+    #it = zip(predictions, targets)
 
-    for (prediction, target) in tqdm(iterable=it, total=len(predictionsLoader)):
-        result = evaluate_image(prediction, target)
-        results.append(result)
+    #for (prediction, target) in tqdm(iterable=it, total=len(predictionsLoader)):
+    #    result = evaluate_image(prediction, target)
+    #    results.append(result)
+
+    prediction_folder = glob.glob(f'{tmp_dir}/*.png')
+    target_folder = glob.glob(f'{dataset_path}/*.png')
+
+    
 
     return results
 

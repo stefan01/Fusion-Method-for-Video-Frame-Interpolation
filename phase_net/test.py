@@ -42,4 +42,5 @@ img_r = pyr.inv_filter(vals)
 
 plt.subplot(1, 2, 2)
 plt.imshow(img_r.cpu().squeeze(1).permute(1, 2, 0).numpy())
-plt.show()
+plt.savefig('./test.png')
+#plt.show()

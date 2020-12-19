@@ -101,6 +101,10 @@ download_and_unzip('Vimeo', 'https://data.csail.mit.edu/tofu/dataset/vimeo_tripl
 download_and_unzip('Davis', 'https://graphics.ethz.ch/Downloads/Data/Davis/DAVIS-data.zip', 'Trainset/davis.zip', 'Trainset/davis/')
 
 # Download and unzip NFS (need for speed)
+try:
+    os.mkdir('./Testset/nfs')
+except OSError:
+    print ("NFS Folder already exists")
 for (url, name) in [
     ('https://cmu.box.com/shared/static/gl5o6qmq7i8da8w4px55ykvffjufw2m6.zip', 'airboard_1'),
     ('https://cmu.box.com/shared/static/kbx27fz51udgk4k08qh6l0yjmn9h3743.zip', 'airplane_landing'),

@@ -9,3 +9,4 @@ requests==2.25.0
 tqdm==4.53.0
 opencv-python==4.4.0.46
 piq==0.5.2
+scikit-image
