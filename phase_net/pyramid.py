@@ -34,7 +34,6 @@ class Pyramid:
         """ Psi filter """
         coeff = self.pyr.build(img)
         vals = self.coeff_to_values(coeff)
-
         return vals
 
     def inv_filter(self, vals):
@@ -51,11 +50,15 @@ class Pyramid:
         phase = []
         amplitude = []
 
+        for x in range(1, nlevels+1):
+            for n in range(nbands):
+                coeff[x][n] = torch.view_as_complex(coeff[x][n])
+
         high_level = coeff[0].permute(1, 2, 0)
         low_level = coeff[-1].permute(1, 2, 0)
 
         for level in range(0, nlevels):
-            phase.append(torch.stack([torch.imag(torch.log(coeff[level+1][band][d].type(torch.complex64)))
+            phase.append(torch.stack([torch.imag(torch.log(coeff[level+1][band][d]))
                                       for d in range(ndims) for band in range(nbands)], -1))
             amplitude.append(torch.stack([torch.abs(coeff[level+1][band][d])
                                           for d in range(ndims) for band in range(nbands)], -1))
