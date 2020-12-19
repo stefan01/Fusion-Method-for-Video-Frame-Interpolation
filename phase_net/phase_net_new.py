@@ -14,13 +14,10 @@ DecompValues = namedtuple(
 )
 
 class PhaseNet(nn.Module):
-    def __init__(self, pyr, device, optimizer=torch.optim.Adam, batch_size=32, lR=0.001,
+    def __init__(self, pyr, device,
                  pic_func=torch.nn.L1Loss, face_loss=None):
         super(PhaseNet, self).__init__()
         self.height = pyr.height
-        self.optimizer = optimizer
-        self.batch = batch_size
-        self.lR = lR
         self.pic_func = pic_func
         self.face_loss = face_loss
         self.device = device
@@ -50,7 +47,7 @@ class PhaseNet(nn.Module):
         # 6 [32, 32, 2, 4]
         # 7 [22, 22, 2, 4]
         # 8 [16, 16, 2, 4]
-        # 9 [12, 12, 2, 12] -> [12, 12, 2, 4] -> [12, 12, 8]
+        # 9 [12, 12, 2, 4] -> [12, 12, 2, 4] -> [12, 12, 8]
         # amplitude
         # 0 [256, 256, 2, 4]
         # 1 [182, 182, 2, 4]
@@ -61,6 +58,7 @@ class PhaseNet(nn.Module):
         # 6 [32, 32, 2, 4]
         # 7 [22, 22, 2, 4]
         # 8 [16, 16, 2, 4]
+        # 9 [12, 12, 2, 4] -> [12, 12, 8]
 
         img = torch.stack((vals.low_level[:, :, 0], vals2.low_level[:, :, 0]), 0).unsqueeze(0)
 
@@ -136,4 +134,4 @@ class PhaseNetBlock(nn.Module):
        f = self.feature_map(x)
        c = self.prediction_map(f)
 
-       return f,c
+       return f, c
