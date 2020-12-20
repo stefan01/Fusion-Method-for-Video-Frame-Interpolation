@@ -14,12 +14,9 @@ DecompValues = namedtuple(
 )
 
 class PhaseNet(nn.Module):
-    def __init__(self, pyr, device,
-                 pic_func=torch.nn.L1Loss, face_loss=None):
+    def __init__(self, pyr, device):
         super(PhaseNet, self).__init__()
         self.height = pyr.height
-        self.pic_func = pic_func
-        self.face_loss = face_loss
         self.device = device
         self.layers = self.create_architecture()
 
@@ -32,15 +29,13 @@ class PhaseNet(nn.Module):
         ]
 
     def forward(self, vals, vals2):
-        #(1, C_in, H, W)
-
         # Phase Net -> 2 image Values
         # high level [256, 256, 1]
         # low level [8, 8, 1]
         # phase 10
-        # 0 [256, 256, 2, 4]
-        # 1 [182, 182, 2, 4]
-        # 2 [128, 128, 2, 4]
+        # 0 [256, 256, 4]
+        # 1 [182, 182, 4]
+        # 2 [128, 128, 4]
         # 3 [90, 90, 2, 4]
         # 4 [64, 64, 2, 4]
         # 5 [46, 46, 2, 4]
@@ -60,46 +55,82 @@ class PhaseNet(nn.Module):
         # 8 [16, 16, 2, 4]
         # 9 [12, 12, 2, 4] -> [12, 12, 8]
 
-        img = torch.stack((vals.low_level[:, :, 0], vals2.low_level[:, :, 0]), 0).unsqueeze(0)
+        print(' START', vals.low_level.shape, vals2.low_level.shape)
 
+        # stack low level images of input frames together
+        img = torch.stack((vals.low_level[:, :, 0], vals2.low_level[:, :, 0]), -1).unsqueeze(0).permute(0, 3, 1, 2)
+
+        # get output of first phase-net block
         feature, prediction = self.layers[0](img)
 
+        # reverse list of steerable pyramid phase and amplitude of each frame
         phase_dim = vals.phase[::-1]
         phase_dim2 = vals2.phase[::-1]
+        amplitude_dim = vals.amplitude[::-1]
+        amplitude_dim2 = vals2.amplitude[::-1]
 
-        high_level = prediction
+        # define low_level of output 
+        low_level = prediction.clone().squeeze(0).permute(1, 2, 0)
+        print('Low Level', low_level.shape)
+
+        # Combined phase values
+        # for pyramid
         phase = []
+        
+        # Combined amplitude values
+        # for pyramid
+        amplitude = []
 
-        for idx in range(1, len(self.layers)-1):
+        # Create combined phase and amplitude values
+        for idx in range(1, len(self.layers)):
+
+            # Pls refactor
             res = phase_dim[idx-1].shape[0]
             resized_feature = torch.nn.Upsample((res, res), mode='bilinear')(feature)
             resized_prediction = torch.nn.Upsample((res, res), mode='bilinear')(prediction)
 
-            img1 = phase_dim[idx-1][:,:,:, :4].reshape(res, res, -1, 1).permute(3, 2, 0, 1)
-            img2 = phase_dim2[idx-1][:,:,:, :4].reshape(res, res, -1, 1).permute(3, 2, 0, 1)
-            concat = torch.cat((resized_feature, img1, img2, resized_prediction), 1)
+            phase1 = phase_dim[idx-1][:,:, :4].reshape(res, res, -1, 1).permute(3, 2, 0, 1)
+            amplitude1 = amplitude_dim[idx-1][:,:, :4].reshape(res, res, -1, 1).permute(3, 2, 0, 1)
+
+            phase2 = phase_dim2[idx-1][:,:, :4].reshape(res, res, -1, 1).permute(3, 2, 0, 1)
+            amplitude2 = amplitude_dim2[idx-1][:,:, :4].reshape(res, res, -1, 1).permute(3, 2, 0, 1)
+
+            concat = torch.cat((resized_feature, phase1, amplitude1, phase2, amplitude2, resized_prediction), 1)
 
             feature, prediction = self.layers[idx](concat)
-
-            print(prediction.shape)
+            phase_p, amplitude_p = prediction.squeeze(0)[:4], prediction.squeeze(0)[4:]
 
             permuted_prediction = prediction.squeeze(0).permute(1, 2, 0)
-            phase.append(permuted_prediction.reshape((permuted_prediction.shape[0],
-                                                     permuted_prediction.shape[1],
-                                                     2, 4)))
+            print('TEST', torch.view_as_real(phase_p.type(torch.complex64)).shape)
 
-            print(phase[-1].shape)
-            #+exit()
+            phase.append(torch.view_as_real(phase_p.type(torch.complex64)).permute(1, 2, 3, 0))
+            amplitude.append(torch.view_as_real(amplitude_p.type(torch.complex64)).permute(1, 2, 3, 0))
 
         print(feature.shape, prediction.shape)
-        low_level = []
-        amplitude = []
+        # Definitely Wrong!
+        high_level = amplitude[-1][:,:,0][:,:,0].unsqueeze(-1)
+
+        # TODO
+        # First no idea how to compute high level, pls fix future me
+        # Second problem with phase and amplitude, they want complex values, the 2 in the dimensions e.g. [256, 256, 2, 4]
+        # Third low level and high level may be swapped??
+        # 4. 2 Values combining
+        # 5. Use RGB Channels
+
+        print('ENDE')
+        print(vals.low_level.shape)
+        print(vals.phase[0].shape)
+        print(vals.high_level.shape)
+
+        print(low_level.shape)
+        print(phase[0].shape)
+        print(high_level.shape)
 
         values = DecompValues(
             high_level=high_level,
             low_level=low_level,
-            phase=phase,
-            amplitude=amplitude
+            phase=phase[::-1],
+            amplitude=amplitude[::-1]
         )
 
         return values

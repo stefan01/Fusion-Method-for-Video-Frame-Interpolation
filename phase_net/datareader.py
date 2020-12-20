@@ -1,3 +1,5 @@
+# With changes from https://github.com/HyeongminLEE/AdaCoF-pytorch/blob/master/datareader.py
+
 import numpy as np
 from os import listdir
 from PIL import Image
