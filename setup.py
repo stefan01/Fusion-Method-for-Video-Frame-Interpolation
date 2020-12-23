@@ -24,7 +24,7 @@ def download_and_unzip(name, url, zip_filename, target_directory):
     if (os.path.isdir(target_directory)):
         print(f"Found {name}...")
         return
-    
+
     if (not os.path.isfile(zip_filename)) and (not os.path.isdir(target_directory)):
         print(f'Downloading {name} Dataset...')
         download(url, zip_filename)
