@@ -3,6 +3,7 @@ channels:
   - pytorch
   - conda-forge
   - defaults
+  - photosynthesis-team
 dependencies:
   - python=3.6
   - numpy
@@ -14,4 +15,9 @@ dependencies:
   - matplotlib
   - pillow
   - scikit-image
-  - piq=0.5.2
+  - piq
+  - tqdm
+  - cupy
+  - scipy
+  - requests
+  - opencv
