@@ -33,12 +33,7 @@ class Pyramid:
 
     def filter(self, img):
         """ Psi filter """
-        coeff = self.pyr.build(img)
-        # Coeff 12
-        # 0 [3 256 256]
-        # 1 List 4[3 256 256 2]
-        # 1 List 4[3 182 182 2]
-        # -1 [3 8 8]
+        coeff = self.pyr.build(img.unsqueeze(1))
         vals = self.coeff_to_values(coeff)
         return vals, coeff
 
@@ -81,64 +76,29 @@ class Pyramid:
 
         return values
 
-    # input = [tensor, tensor, tensor]x10 ->
-    # input = [[tensor]x4, [tensor]x4, [tensor]x4]x10
-
     def reorder(self, input, ndims):
         nbands = int(input[0].shape[0]/ndims)
-        return [[input[i].reshape(nbands, ndims, input[i].shape[2], input[i].shape[3])[j]
+        return [[input[i].reshape(ndims, nbands, input[i].shape[2], input[i].shape[3])[:, j]
         for j in range(int(input[0].shape[0]/ndims))] for i in range(len(input))]
 
     def values_to_coeff(self, values, coeff_r):
-        # [3, 1, 256, 256]
         ndims, _, H, W = values.high_level.shape
-        print(ndims)
+
+        # reorder amplitude and phase elements to list with list of 4 tensors for each level
         amplitude = self.reorder(values.amplitude, ndims)
         phase = self.reorder(values.phase, ndims)
         nlevels = len(phase)
         nbands = len(phase[0])
-        print(nlevels, nbands)
 
         coeff = []
         high_level = values.high_level.squeeze(1)
         low_level = values.low_level.squeeze(1)
         coeff.append(high_level)
 
-        print(len(phase)) # 10
-        print(len(phase[0])) #4
-        print(phase[0][0].shape) # [3, 256, 256]
-
-        print(high_level.device, amplitude[0][0][0][0].device)
-        #coeff.extend([[torch.stack(
-            #[torch.complex(amplitude[0][level][band][d], torch.zeros(1, device=high_level.device))
-            # * torch.exp(torch.complex(torch.zeros(1, device=high_level.device), phase[0][level][band][d]))
-            # for d in range(0, ndims)],
-            #dim=0).real
-        #    for band in range(nbands)] for level in range(nlevels)])
-
-        # Phase -> 10
-        # 0 -> 4 list [3, 256, 256] angle
-        # 1 -> 4 list [3, 182, 182]
-        # 2 -> 4 list [3, 128, 128]
-
-        # Amplitude -> 10
-        # 0 -> 4 list [3, 256, 256] magn
-        # 1 -> 4 list [3, 182, 182]
-        # 2 -> 4 list [3, 128, 128]
-
-        #1. cos(angl)*magn -> [3, 256, 256]
-        #2. sin(angl)*magn -> [3, 256, 256]
-        #3. stack -> [3, 256, 256, 2]
-
-        # Result -> 10
-        # 0 -> 4 list [3, 256, 256, 2]
-        # 1 -> 4 list [3, 182, 182, 2]
-        # 2 -> 4 list [3, 128, 128, 2]
-
-
-        for level in range(nlevels): # 10
+        # transform and stack phase and amplitude to real and complex dimension
+        for level in range(nlevels):
             res_in = []
-            for x in range(nbands): # 4
+            for x in range(nbands):
                 angle = phase[level][x]
                 magnitude = amplitude[level][x]
                 real = torch.cos(angle) * magnitude

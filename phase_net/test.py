@@ -8,13 +8,9 @@ from collections import namedtuple
 from skimage import io
 import matplotlib.pyplot as plt
 from PIL import Image
-
 from phase_net import PhaseNet
-
 from steerable.SCFpyr_PyTorch import SCFpyr_PyTorch
 import steerable.utils as utils
-
-from PIL import Image
 import torchvision.transforms.functional as TF
 import torchvision.transforms as transforms
 
@@ -35,26 +31,15 @@ pyr = Pyramid(
 batch_size = 32
 #dataset = DBreader_Vimeo90k('./Trainset/vimeo/vimeo_triplet', random_crop=(256, 256))
 
-#    print(len(triple))
-#    print(triple[0].shape) # [5, 3, 256, 256]
-                           # [5*3, 1, 256, 256]
-
-#print(len(dataset[0])) #3
-#print(dataset[0][0].shape) # [3, 256, 256]
-#print(len(dataset)) # 73191
-
-#[256, 256, 3] -> 0,1
 img = Image.open('Testset/Clip1/000.png')
 img2 = Image.open('Testset/Clip1/001.png')
 
-#plt.imshow(img.cpu().numpy())
-#plt.show()
+#img.show()
 
 img = TF.to_tensor(transforms.RandomCrop((256, 256))(img)).to(device)
 img2 = TF.to_tensor(transforms.RandomCrop((256, 256))(img2)).to(device)
 
-img = img.unsqueeze(1)
-img2 = img2.unsqueeze(1)
+transforms.ToPILImage()(img.cpu()).show()
 
 #plt.subplot(1, 2, 1)
 #plt.imshow(img.cpu().squeeze(1).permute(1, 2, 0).numpy())
@@ -148,16 +133,17 @@ vals_r = phase_net(vals)
     # 9 [12, 12, 2, 12]
 # amplitude
 
-
-print(len(vals1.amplitude))
-print(len(vals_r.amplitude))
-
-print(vals1.amplitude[0].shape)
-print(vals_r.amplitude[0].shape)
-
 # Psi^{-1}
 img_r = pyr.inv_filter(vals_r, coeff1)
 
+img_p = img_r.detach().cpu()
+print(img_p.shape)
+
+transforms.ToPILImage()(img_p).show()
+
+print(img[0, 0, :20])
+print(img_r[0, 0, :20])
+print(img.shape, img_r.shape)
 print('Endfehler', torch.max(img-img_r))
 
 #plt.subplot(1, 2, 2)
