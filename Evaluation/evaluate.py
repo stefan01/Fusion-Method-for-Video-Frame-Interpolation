@@ -2,7 +2,10 @@ import sys, os, glob, subprocess
 from tqdm import tqdm
 import torch
 from torchvision import datasets, transforms
+import torchvision.transforms.functional as TF
 from piq import ssim, LPIPS, psnr
+from PIL import Image
+import matplotlib.pyplot as plt
 
 tmp_dir = 'tmp'
 os.makedirs(tmp_dir, exist_ok=True)
@@ -49,37 +52,52 @@ def interpolate_dataset(dataset_path):
 # Evaluates a dataset.
 # Takes interpolated images a and c
 # and compares the result with b
-def evaluate_datasets(dataset_path):
-    #predictionFolder = datasets.ImageFolder(tmp_dir, transform=transforms.ToTensor)
-    #targetFolder = datasets.ImageFolder(dataset_path, transform=transforms.ToTensor)
+def evaluate_dataset(dataset_path):
+    prediction_folder = sorted(glob.glob(f'{tmp_dir}/{dataset_path}/*.png'))
+    target_folder = sorted(glob.glob(f'../Testset/{dataset_path}/*.png'))
 
-    #predictionsLoader = torch.utils.data.DataLoader(predictionFolder)
-    #targetsLoader = torch.utils.data.DataLoader(targetFolder)
+    output_path = os.path.dirname(os.path.dirname(dataset_path)) + "visual_result"
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
 
-    #print(len(predictionsLoader))
-    #print(len(targetsLoader))
+    eval_results = []
 
-    #predictions = iter(predictionsLoader)
-    #targets = iter(targetsLoader)
+    for i in range(1, len(prediction_folder)):
+        # Load Images
+        image_prediction = Image.open(prediction_folder[i])
+        image_target = Image.open(target_folder[i])
 
-    # Skip first image
-    #next(targets)
+        tensor_prediction = TF.to_tensor(image_prediction)
+        tensor_target = TF.to_tensor(image_target)
 
-    #results = []
+        # Evaluate
+        eval_result = evaluate_image(tensor_prediction, tensor_target)
+        eval_results.append(eval_result)
 
-    #it = range(1, len(targets))
-    #it = zip(predictions, targets)
+        # draw images
+        draw_difference(prediction_folder[i], target_folder[i], output_path, eval_result[0], i)
 
-    #for (prediction, target) in tqdm(iterable=it, total=len(predictionsLoader)):
-    #    result = evaluate_image(prediction, target)
-    #    results.append(result)
+    return eval_results
 
-    prediction_folder = glob.glob(f'{tmp_dir}/*.png')
-    target_folder = glob.glob(f'{dataset_path}/*.png')
 
-    
+def draw_difference(pred_img, target_img, out_path, error, number):
+    difference = torch.abs(target_img - pred_img)
 
-    return results
+    plt.subplot(131)
+    plt.imshow(target_img)
+    plt.title('Target Image')
+
+    plt.subplot(132)
+    plt.imshow(pred_img)
+    plt.title('Predicted Image')
+
+    plt.subplot(133)
+    plt.imshow(difference)
+    plt.title('Difference Image')
+
+    name = f"img_{number}_{error}.png"
+    plt.savefig(out_path + "/" + name)
+
 
 
 testsets = ['Clip1', 'Clip2']
@@ -88,5 +106,6 @@ for testset in testsets:
         testset_path = f'../Testset/{testset}'
         interpolate_dataset(testset_path)
 
-result = evaluate_datasets('../Testset/')
-print(f'Result: {result}')
+for testset in testsets:
+    result = evaluate_dataset(testset)
+    print(f'Result for {testset}: {result}')
