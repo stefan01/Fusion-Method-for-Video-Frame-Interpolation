@@ -50,6 +50,7 @@ transforms.ToPILImage()(img.cpu()).show()
 #plt.imshow(img.cpu().squeeze(1).permute(1, 2, 0).numpy())
 
 # Psi
+print(img.shape)
 vals1 = pyr.filter(img)
 vals2 = pyr.filter(img2)
 
@@ -77,7 +78,7 @@ transforms.ToPILImage()(img_p).show()
 
 optimizer = optim.Adam(phase_net.parameters(), lr=1e-3)
 
-for epoch in range(1000):
+for epoch in range(500):
     optimizer.zero_grad()
 
     # Phase net image

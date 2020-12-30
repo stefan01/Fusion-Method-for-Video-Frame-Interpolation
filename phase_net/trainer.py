@@ -4,10 +4,20 @@ import os
 import torch
 from torch import nn
 # from loss import calc_loss
+from collections import namedtuple
+
+
+DecompValues = namedtuple(
+    'values',
+    'high_level, '
+    'phase, '
+    'amplitude, '
+    'low_level'
+)
 
 
 class Trainer:
-    def __init__(self, args, train_loader, my_model, my_pyr, batch_size,
+    def __init__(self, args, train_loader, my_model, my_pyr, batch_size=1,
                  lR=0.001, weight_decay= 0.0001, start_epoch=0,
                  epoch=10, show_Image=False):
         self.args = args
@@ -21,6 +31,7 @@ class Trainer:
         self.epoch = epoch
         self.current_epoch = start_epoch
         self.show_Image = show_Image
+        self.device = my_pyr.device
 
         self.optimizer = torch.optim.Adam(self.model.parameters(),
                                           lr=self.lR,
@@ -47,9 +58,9 @@ class Trainer:
             width = triple[0].shape[3]
 
             # get input data of first and second frame and the corresponding target image
-            frame1 = triple[0].reshape((self.batch_size*3, 1, heigth, width)),
-            target = triple[1].reshape((self.batch_size*3, 1, heigth, width)),
-            frame2 = triple[2].reshape((self.batch_size*3, 1, heigth, width))
+            frame1 = triple[0].to(self.device).reshape((-1, heigth, width))
+            target = triple[1].to(self.device).reshape((-1, heigth, width))
+            frame2 = triple[2].to(self.device).reshape((-1, heigth, width))
 
             # create steerable pyramid for the input frames
             fram1_pyr = self.pyr.filter(frame1)
@@ -63,7 +74,7 @@ class Trainer:
             # transform output of the network back to an image -> inverse steerable pyramid
             output = self.pyr.inv_filter(output_pyr)
 
-            loss = calc_loss(output, target)  # input, target
+            loss = calc_loss(output_pyr, output, target, self.pyr)  # input, target
             #(img1, img2, img_g, pyr, phase_net, weighting_factor=0.1)
 
             # === The backpropagation
@@ -75,7 +86,7 @@ class Trainer:
             self.optimizer.step()
 
             # To do output stuff with loss and image, we have to detach() and convert back to numpy.
-            loss = loss.detach().numpy()
+            loss = loss.cpu().detach().numpy()
             # Append to loss history
             self.loss_history.append(loss)
 
@@ -120,9 +131,8 @@ def get_concat_layers(pyr, vals1, vals2):
         amplitude=amplitude[::-1]
     )
 
-def calc_loss(output, target, pyr, weighting_factor=0.1):
+def calc_loss(vals_r, output, target, pyr, weighting_factor=0.1):
     vals_g = pyr.filter(target)
-    vals_r = pyr.filter(output)
 
     phase_losses = []
 
@@ -136,6 +146,6 @@ def calc_loss(output, target, pyr, weighting_factor=0.1):
 
     phase_loss = torch.stack(phase_losses, 0).sum(0)
 
-    l_1 = torch.norm(img_g-img_r, p=1)
+    l_1 = torch.norm(target-output, p=1)
 
     return l_1 + weighting_factor * phase_loss

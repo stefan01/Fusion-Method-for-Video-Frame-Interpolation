@@ -6,3 +6,4 @@ davis.zip
 Trainset/
 Testset/*
 !Testset/*.mp4
+output_adacof_train
