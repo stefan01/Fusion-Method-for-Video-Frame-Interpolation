@@ -21,14 +21,15 @@ class PhaseNet(nn.Module):
         self.height = pyr.height
         self.device = device
         self.layers = self.create_architecture()
+        self.to(self.device)
 
     def create_architecture(self):
-        return [
+        return nn.ModuleList([
             PhaseNetBlock(2, 64, 1, (1, 1), self.device),
             PhaseNetBlock(64 + 1 + 16, 64, 8, (1, 1), self.device),
             PhaseNetBlock(64 + 8 + 16, 64, 8, (1, 1), self.device),
             *[PhaseNetBlock(64 + 8 + 16, 64, 8, (3 ,3), self.device) for _ in range(self.height-4)]
-        ]
+        ])
 
     # Normalize the amplitude and phase values.
     #
@@ -40,12 +41,18 @@ class PhaseNet(nn.Module):
     def normalize_vals(self, vals):
         # Normalize amplitude
         amplitudes = []
+        self.max_amplitudes = []
+        batch_size = int(vals.amplitude[0].shape[0]/3)
         for amplitude in vals.amplitude:
-            max_amplitude, _ = torch.max(amplitude, 2, True)
-            amplitudes.append(torch.div(amplitude, max_amplitude))
+            max_amplitude = amplitude.reshape(batch_size, -1).max(1)[0]
+
+            # Save max amplitudes
+            self.max_amplitudes.append(max_amplitude)
+
+            amplitudes.append(amplitude/ max_amplitude)
 
         # Normalize phase
-        phases = [torch.div(x, math.pi) for x in vals.phase]
+        phases = [x / math.pi for x in vals.phase]
 
         return DecompValues(
             high_level=vals.high_level,
@@ -53,6 +60,16 @@ class PhaseNet(nn.Module):
             amplitude=amplitudes,
             phase=phases
         )
+
+    def reverse_normalize(self, vals):
+        amplitudes = [vals.amplitude[i] * max_ampl for i, max_ampl in enumerate(self.max_amplitudes)]
+
+        return DecompValues(
+            high_level=vals.high_level,
+            low_level=vals.low_level,
+            amplitude=amplitudes[::-1],
+            phase= [x*math.pi for x in vals.phase][::-1]
+            )
 
     def forward(self, vals):
         vals = self.normalize_vals(vals)
@@ -87,12 +104,12 @@ class PhaseNet(nn.Module):
         hl_shape = vals.high_level.shape
         high_level = torch.zeros((hl_shape[0], 1, hl_shape[2], hl_shape[3]), device=self.device)
 
-        values = DecompValues(
+        values = self.reverse_normalize(DecompValues(
             high_level=high_level,
             low_level=low_level,
-            phase=phase[::-1],
-            amplitude=amplitude[::-1]
-        )
+            phase=phase,
+            amplitude=amplitude
+        ))
 
         return values
 

@@ -2,30 +2,29 @@
 
 import os
 import torch
-import torch
 from torch import nn
+# from loss import calc_loss
 
 
 class Trainer:
-    def __init__(self, args, train_loader, test_loader, my_model, my_pyr, my_loss, batch_size,
+    def __init__(self, args, train_loader, my_model, my_pyr, batch_size,
                  lR=0.001, weight_decay= 0.0001, start_epoch=0,
-                 epoch=10):
+                 epoch=10, show_Image=False):
         self.args = args
         self.train_loader = train_loader
         self.max_step = self.train_loader.__len__()
-        self.test_loader = test_loader
         self.model = my_model
         self.pyr = my_pyr
-        self.loss = my_loss
         self.batch_size = batch_size
         self.lR = lR
         self.wD = weight_decay
         self.epoch = epoch
         self.current_epoch = start_epoch
+        self.show_Image = show_Image
 
         self.optimizer = torch.optim.Adam(self.model.parameters(),
-                                           lr=self.lR,
-                                            weight_decay=self.wD)
+                                          lr=self.lR,
+                                          weight_decay=self.wD)
 
         if not os.path.exists(args.out_dir):
             os.makedirs(args.out_dir)
@@ -39,10 +38,6 @@ class Trainer:
 
         self.logfile = open(args.out_dir + '/log.txt', 'w')
         self.loss_history = []
-
-        # Initial Test
-        # self.model.eval()
-        # self.test_loader.Test(self.model, self.result_dir, self.current_epoch, self.logfile, str(self.current_epoch).zfill(3) + '.png')
 
     def train(self):
         # Train
@@ -60,13 +55,16 @@ class Trainer:
             fram1_pyr = self.pyr.filter(frame1)
             fram2_pyr = self.pyr.filter(frame2)
 
+            inp = get_concat_layers(self.pyr, fram1_pyr, fram2_pyr)
+
             # predicted intersected image of fram1 and frame2
-            output_pyr = self.model(fram1_pyr, fram2_pyr)
+            output_pyr = self.model(inp)
 
             # transform output of the network back to an image -> inverse steerable pyramid
             output = self.pyr.inv_filter(output_pyr)
 
-            loss = self.loss(output, target)  # input, target
+            loss = calc_loss(output, target)  # input, target
+            #(img1, img2, img_g, pyr, phase_net, weighting_factor=0.1)
 
             # === The backpropagation
             # Reset the gradients
@@ -85,17 +83,59 @@ class Trainer:
                 print('{:<13s}{:<14s}{:<6s}{:<16s}{:<12s}{:<20.16f}'.format('Train Epoch: ',
                       '[' + str(self.current_epoch) + '/' + str(self.args.epochs) + ']', 'Step: ',
                       '[' + str(batch_idx) + '/' + str(self.max_step) + ']', 'train loss: ', loss.item()))
-        self.current_epoch += 1
 
-    def test(self):
-        # Test
-        torch.save({'epoch': self.current_epoch, 'state_dict': self.model.get_state_dict()}, self.ckpt_dir + '/model_epoch' + str(self.current_epoch).zfill(3) + '.pth')
-        self.model.eval()
-        self.test_loader.Test(self.model, self.result_dir, self.current_epoch, self.logfile, str(self.current_epoch).zfill(3) + '.png')
-        self.logfile.write('\n')
+                if self.show_Image:
+                    self.show_img(output)
+
+        self.current_epoch += 1
 
     def terminate(self):
         return self.current_epoch >= self.args.epochs
 
     def close(self):
         self.logfile.close()
+
+    def show_img(self, img):
+        img_p = img.detach().cpu()
+        transforms.ToPILImage()(img_p).show()
+
+def get_concat_layers(pyr, vals1, vals2):
+    nbands = pyr.nbands
+
+    vals1_amplitude = [x.reshape((int(x.shape[0] / nbands), nbands, x.shape[2], x.shape[3])) for x in vals1.amplitude]
+    vals2_amplitude = [x.reshape((int(x.shape[0] / nbands), nbands, x.shape[2], x.shape[3])) for x in vals2.amplitude]
+
+    vals1_phase = [x.reshape((int(x.shape[0] / nbands), nbands, x.shape[2], x.shape[3])) for x in vals1.phase]
+    vals2_phase = [x.reshape((int(x.shape[0] / nbands), nbands, x.shape[2], x.shape[3])) for x in vals2.phase]
+
+    high_level = torch.cat((vals1.high_level, vals2.high_level), 1)
+    low_level = torch.cat((vals1.low_level, vals2.low_level), 1)
+    phase = [torch.cat((a, b), 1) for (a, b) in zip(vals1_phase, vals2_phase)]
+    amplitude = [torch.cat((a, b), 1) for (a, b) in zip(vals1_amplitude, vals2_amplitude)]
+
+    return DecompValues(
+        high_level=high_level,
+        low_level=low_level,
+        phase=phase[::-1],
+        amplitude=amplitude[::-1]
+    )
+
+def calc_loss(output, target, pyr, weighting_factor=0.1):
+    vals_g = pyr.filter(target)
+    vals_r = pyr.filter(output)
+
+    phase_losses = []
+
+    for (phase_r, phase_g) in zip(vals_r.phase, vals_g.phase):
+        phase_r_2 = phase_r.reshape(-1, pyr.nbands, phase_r.shape[2], phase_r.shape[3]).permute(1, 0, 2, 3)
+        phase_g_2 = phase_g.reshape(-1, pyr.nbands, phase_r.shape[2], phase_r.shape[3]).permute(1, 0, 2, 3)
+
+        for (orientation_r, orientation_g) in zip(phase_r_2, phase_g_2):
+            delta_psi = torch.atan2(torch.sin(orientation_g - orientation_r), torch.cos(orientation_g - orientation_r))
+            phase_losses.append(torch.norm(delta_psi, 1))
+
+    phase_loss = torch.stack(phase_losses, 0).sum(0)
+
+    l_1 = torch.norm(img_g-img_r, p=1)
+
+    return l_1 + weighting_factor * phase_loss

@@ -35,11 +35,11 @@ class Pyramid:
         """ Psi filter """
         coeff = self.pyr.build(img.unsqueeze(1))
         vals = self.coeff_to_values(coeff)
-        return vals, coeff
+        return vals
 
-    def inv_filter(self, vals, coeff2):
+    def inv_filter(self, vals):
         """ Psi^{-1} filter """
-        coeff = self.values_to_coeff(vals, coeff2)
+        coeff = self.values_to_coeff(vals)
         img = self.pyr.reconstruct(coeff)
 
         return img
@@ -81,7 +81,7 @@ class Pyramid:
         return [[input[i].reshape(ndims, nbands, input[i].shape[2], input[i].shape[3])[:, j]
         for j in range(int(input[0].shape[0]/ndims))] for i in range(len(input))]
 
-    def values_to_coeff(self, values, coeff_r):
+    def values_to_coeff(self, values):
         ndims, _, H, W = values.high_level.shape
 
         # reorder amplitude and phase elements to list with list of 4 tensors for each level
@@ -107,9 +107,5 @@ class Pyramid:
             coeff.append(res_in)
 
         coeff.append(low_level)
-
-        print(coeff[1][0].shape, coeff_r[1][0].shape)
-
-        print(f'coeff-div: {torch.max((coeff[1][0] - coeff_r[1][0]).abs())}')
 
         return coeff

@@ -39,7 +39,7 @@ def main():
     torch.cuda.set_device(args.gpu_id)
 # 
     dataset = DBreader_Vimeo90k(args.train, random_crop=(args.patch_size, args.patch_size))
-    TestDB = Middlebury_other(args.test_input, args.gt)
+    # TestDB = Middlebury_other(args.test_input, args.gt)
     train_loader = DataLoader(dataset=dataset, batch_size=args.batch_size, shuffle=True, num_workers=0)
 
     device = utils.get_device()
@@ -57,7 +57,7 @@ def main():
         model.load(checkpoint['state_dict'])
         start_epoch = checkpoint['epoch'] pyr,
 
-    my_trainer = Trainer(args, train_loader, TestDB, model, loss, start_epoch)
+    my_trainer = Trainer(args, train_loader, model, loss, start_epoch)
 
     now = datetime.datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     with open(args.out_dir + '/config.txt', 'a') as f:
