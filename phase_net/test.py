@@ -78,7 +78,7 @@ transforms.ToPILImage()(img_p).show()
 
 optimizer = optim.Adam(phase_net.parameters(), lr=1e-3)
 
-for epoch in range(500):
+for epoch in range(200):
     optimizer.zero_grad()
 
     # Phase net image
@@ -93,9 +93,9 @@ for epoch in range(500):
     optimizer.step()
 
     # print statistics
-    running_loss = loss.item()
-    print('[%d] loss: %.3f' %
-            (epoch + 1, running_loss))
+    #running_loss = loss.item()
+    #print('[%d] loss: %.3f' %
+    #        (epoch + 1, running_loss))
 
 vals_r = phase_net(vals)
 img_r = pyr.inv_filter(vals_r)

@@ -62,8 +62,8 @@ class PhaseNet(nn.Module):
         )
 
     def reverse_normalize(self, vals):
-        amplitudes = [vals.amplitude[i] * max_ampl for i, max_ampl in enumerate(self.max_amplitudes)]
-
+        #amplitudes = [vals.amplitude[i] * max_ampl for i, max_ampl in enumerate(self.max_amplitudes)]
+        amplitudes = vals.amplitude
         return DecompValues(
             high_level=vals.high_level,
             low_level=vals.low_level,
@@ -130,7 +130,6 @@ class PhaseNetBlock(nn.Module):
             nn.ReLU(),
             nn.BatchNorm2d(c_out),
             nn.Conv2d(c_out, c_out, kernel_size, padding=padding, padding_mode='reflect'),
-            nn.ReLU()
         )
         self.prediction_map = nn.Sequential(
             nn.Conv2d(c_out, pred_out, (1, 1)),

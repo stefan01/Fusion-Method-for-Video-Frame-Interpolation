@@ -7,3 +7,4 @@ Trainset/
 Testset/*
 !Testset/*.mp4
 output_adacof_train
+do_not_commit.py
