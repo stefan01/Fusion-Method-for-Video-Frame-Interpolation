@@ -53,6 +53,7 @@ def interpolate_dataset(dataset_path):
 # Takes interpolated images a and c
 # and compares the result with b
 def evaluate_dataset(dataset_path):
+    print(f'Evaluating Dataset {dataset_path}')
     prediction_folder = sorted(glob.glob(f'{tmp_dir}/{dataset_path}/*.png'))
     target_folder = sorted(glob.glob(f'../Testset/{dataset_path}/*.png'))
 
@@ -62,7 +63,9 @@ def evaluate_dataset(dataset_path):
 
     eval_results = []
 
-    for i in range(1, len(prediction_folder)):
+    it = range(1, len(prediction_folder)) 
+
+    for i in tqdm(iterable=it, total=len(it)):
         # Load Images
         image_prediction = Image.open(prediction_folder[i])
         image_target = Image.open(target_folder[i])
@@ -75,7 +78,7 @@ def evaluate_dataset(dataset_path):
         eval_results.append(eval_result)
 
         # draw images
-        draw_difference(prediction_folder[i], target_folder[i], output_path, eval_result[0], i)
+        #draw_difference(prediction_folder[i], target_folder[i], output_path, eval_result[0], i)
 
     return eval_results
 
