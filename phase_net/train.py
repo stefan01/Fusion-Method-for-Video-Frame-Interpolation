@@ -21,14 +21,14 @@ parser.add_argument('--gpu_id', type=int, default=0)
 
 # Directory Setting
 parser.add_argument('--train', type=str, default='./Trainset/vimeo/vimeo_triplet')
-parser.add_argument('--out_dir', type=str, default='./output_adacof_train')
+parser.add_argument('--out_dir', type=str, default='./output_phase_net_train')
 parser.add_argument('--load', type=str, default=None)
 parser.add_argument('--test_input', type=str, default='./test_input/middlebury_others/input')
 parser.add_argument('--gt', type=str, default='./test_input/middlebury_others/gt')
 
 # Learning Options
 parser.add_argument('--epochs', type=int, default=50, help='Max Epochs')
-parser.add_argument('--batch_size', type=int, default=1, help='Batch size')
+parser.add_argument('--batch_size', type=int, default=12, help='Batch size')
 
 # Optimization specifications
 parser.add_argument('--lr', type=float, default=0.001, help='learning rate')
@@ -73,6 +73,7 @@ def main():
     while not my_trainer.terminate():
         my_trainer.train()
         my_trainer.test()
+        torch.save(model.state_dict(), args.out_dir + f'/checkpoint/model_{my_trainer.current_epoch}.pt')
 
     loss_hist = np.asarray(my_trainer.loss_history)
     np.savetxt(args.out_dir + '/loss_hist.txt', loss_hist)

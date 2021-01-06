@@ -1,4 +1,4 @@
-v# With changes from https://github.com/HyeongminLEE/AdaCoF-pytorch/blob/master/trainer.py
+# With changes from https://github.com/HyeongminLEE/AdaCoF-pytorch/blob/master/trainer.py
 
 import os
 import torch
