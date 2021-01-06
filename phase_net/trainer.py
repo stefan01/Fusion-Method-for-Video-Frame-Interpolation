@@ -1,4 +1,4 @@
-v# With changes from https://github.com/HyeongminLEE/AdaCoF-pytorch/blob/master/trainer.py
+# With changes from https://github.com/HyeongminLEE/AdaCoF-pytorch/blob/master/trainer.py
 
 import os
 import torch
@@ -61,6 +61,8 @@ class Trainer:
             frame1 = triple[0].to(self.device).reshape((-1, heigth, width))
             target = triple[1].to(self.device).reshape((-1, heigth, width))
             frame2 = triple[2].to(self.device).reshape((-1, heigth, width))
+
+            print(frame1.shape)
 
             # create steerable pyramid for the input frames
             fram1_pyr = self.pyr.filter(frame1)

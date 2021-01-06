@@ -1,0 +1,28 @@
+2021-01-06-22:31:46
+
+gpu_id: 0
+train: ./Trainset/vimeo/vimeo_triplet
+out_dir: ./output_phase_net_train
+load: None
+test_input: ./test_input/middlebury_others/input
+gt: ./test_input/middlebury_others/gt
+epochs: 50
+batch_size: 12
+lr: 0.001
+lr_decay: 20
+weight_decay: 0
+
+2021-01-06-22:32:15
+
+gpu_id: 0
+train: ./Trainset/vimeo/vimeo_triplet
+out_dir: ./output_phase_net_train
+load: None
+test_input: ./test_input/middlebury_others/input
+gt: ./test_input/middlebury_others/gt
+epochs: 50
+batch_size: 12
+lr: 0.001
+lr_decay: 20
+weight_decay: 0
+
