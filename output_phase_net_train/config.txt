@@ -26,3 +26,213 @@ lr: 0.001
 lr_decay: 20
 weight_decay: 0
 
+2021-01-06-22:32:59
+
+gpu_id: 0
+train: ./Trainset/vimeo/vimeo_triplet
+out_dir: ./output_phase_net_train
+load: None
+test_input: ./test_input/middlebury_others/input
+gt: ./test_input/middlebury_others/gt
+epochs: 50
+batch_size: 12
+lr: 0.001
+lr_decay: 20
+weight_decay: 0
+
+2021-01-06-22:33:56
+
+gpu_id: 0
+train: ./Trainset/vimeo/vimeo_triplet
+out_dir: ./output_phase_net_train
+load: None
+test_input: ./test_input/middlebury_others/input
+gt: ./test_input/middlebury_others/gt
+epochs: 50
+batch_size: 12
+lr: 0.001
+lr_decay: 20
+weight_decay: 0
+
+2021-01-06-22:35:12
+
+gpu_id: 0
+train: ./Trainset/vimeo/vimeo_triplet
+out_dir: ./output_phase_net_train
+load: None
+test_input: ./test_input/middlebury_others/input
+gt: ./test_input/middlebury_others/gt
+epochs: 50
+batch_size: 12
+lr: 0.001
+lr_decay: 20
+weight_decay: 0
+
+2021-01-06-22:36:14
+
+gpu_id: 0
+train: ./Trainset/vimeo/vimeo_triplet
+out_dir: ./output_phase_net_train
+load: None
+test_input: ./test_input/middlebury_others/input
+gt: ./test_input/middlebury_others/gt
+epochs: 50
+batch_size: 12
+lr: 0.001
+lr_decay: 20
+weight_decay: 0
+
+2021-01-06-22:37:19
+
+gpu_id: 0
+train: ./Trainset/vimeo/vimeo_triplet
+out_dir: ./output_phase_net_train
+load: None
+test_input: ./test_input/middlebury_others/input
+gt: ./test_input/middlebury_others/gt
+epochs: 50
+batch_size: 1
+lr: 0.001
+lr_decay: 20
+weight_decay: 0
+
+2021-01-06-22:37:37
+
+gpu_id: 0
+train: ./Trainset/vimeo/vimeo_triplet
+out_dir: ./output_phase_net_train
+load: None
+test_input: ./test_input/middlebury_others/input
+gt: ./test_input/middlebury_others/gt
+epochs: 50
+batch_size: 1
+lr: 0.001
+lr_decay: 20
+weight_decay: 0
+
+2021-01-06-22:45:09
+
+gpu_id: 0
+train: ./Trainset/vimeo/vimeo_triplet
+out_dir: ./output_phase_net_train
+load: None
+test_input: ./test_input/middlebury_others/input
+gt: ./test_input/middlebury_others/gt
+epochs: 50
+batch_size: 1
+lr: 0.001
+lr_decay: 20
+weight_decay: 0
+
+2021-01-06-22:45:33
+
+gpu_id: 0
+train: ./Trainset/vimeo/vimeo_triplet
+out_dir: ./output_phase_net_train
+load: None
+test_input: ./test_input/middlebury_others/input
+gt: ./test_input/middlebury_others/gt
+epochs: 50
+batch_size: 1
+lr: 0.001
+lr_decay: 20
+weight_decay: 0
+
+2021-01-06-22:46:07
+
+gpu_id: 0
+train: ./Trainset/vimeo/vimeo_triplet
+out_dir: ./output_phase_net_train
+load: None
+test_input: ./test_input/middlebury_others/input
+gt: ./test_input/middlebury_others/gt
+epochs: 50
+batch_size: 1
+lr: 0.001
+lr_decay: 20
+weight_decay: 0
+
+2021-01-06-22:47:02
+
+gpu_id: 0
+train: ./Trainset/vimeo/vimeo_triplet
+out_dir: ./output_phase_net_train
+load: None
+test_input: ./test_input/middlebury_others/input
+gt: ./test_input/middlebury_others/gt
+epochs: 50
+batch_size: 1
+lr: 0.001
+lr_decay: 20
+weight_decay: 0
+
+2021-01-06-22:48:40
+
+gpu_id: 0
+train: ./Trainset/vimeo/vimeo_triplet
+out_dir: ./output_phase_net_train
+load: None
+test_input: ./test_input/middlebury_others/input
+gt: ./test_input/middlebury_others/gt
+epochs: 50
+batch_size: 1
+lr: 0.001
+lr_decay: 20
+weight_decay: 0
+
+2021-01-06-22:49:36
+
+gpu_id: 0
+train: ./Trainset/vimeo/vimeo_triplet
+out_dir: ./output_phase_net_train
+load: None
+test_input: ./test_input/middlebury_others/input
+gt: ./test_input/middlebury_others/gt
+epochs: 50
+batch_size: 1
+lr: 0.001
+lr_decay: 20
+weight_decay: 0
+
+2021-01-06-22:58:34
+
+gpu_id: 0
+train: ./Trainset/vimeo/vimeo_triplet
+out_dir: ./output_phase_net_train
+load: None
+test_input: ./test_input/middlebury_others/input
+gt: ./test_input/middlebury_others/gt
+epochs: 50
+batch_size: 1
+lr: 0.001
+lr_decay: 20
+weight_decay: 0
+
+2021-01-06-22:59:08
+
+gpu_id: 0
+train: ./Trainset/vimeo/vimeo_triplet
+out_dir: ./output_phase_net_train
+load: None
+test_input: ./test_input/middlebury_others/input
+gt: ./test_input/middlebury_others/gt
+epochs: 50
+batch_size: 12
+lr: 0.001
+lr_decay: 20
+weight_decay: 0
+
+2021-01-06-22:59:56
+
+gpu_id: 0
+train: ./Trainset/vimeo/vimeo_triplet
+out_dir: ./output_phase_net_train
+load: None
+test_input: ./test_input/middlebury_others/input
+gt: ./test_input/middlebury_others/gt
+epochs: 50
+batch_size: 4
+lr: 0.001
+lr_decay: 20
+weight_decay: 0
+

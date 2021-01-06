@@ -62,8 +62,6 @@ class Trainer:
             target = triple[1].to(self.device).reshape((-1, heigth, width))
             frame2 = triple[2].to(self.device).reshape((-1, heigth, width))
 
-            print(frame1.shape)
-
             # create steerable pyramid for the input frames
             fram1_pyr = self.pyr.filter(frame1)
             fram2_pyr = self.pyr.filter(frame2)

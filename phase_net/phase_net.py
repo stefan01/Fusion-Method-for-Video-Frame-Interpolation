@@ -42,21 +42,23 @@ class PhaseNet(nn.Module):
         # Normalize amplitude
         amplitudes = []
         self.max_amplitudes = []
-        batch_size = int(vals.amplitude[0].shape[0]/3)
+        batch_size = int(vals.amplitude[0].shape[0])
         for amplitude in vals.amplitude:
             max_amplitude = amplitude.reshape(batch_size, -1).max(1)[0]
 
             # Save max amplitudes
             self.max_amplitudes.append(max_amplitude)
 
-            amplitudes.append(amplitude/ max_amplitude)
+            amp_shape = amplitude.shape
+            amplitudes.append((amplitude.reshape(amp_shape[0], -1).permute(1, 0) / max_amplitude).permute(1, 0).reshape(amp_shape))
 
         # Normalize phase
         phases = [x / math.pi for x in vals.phase]
 
         # Normalize low_level
+        low_shape = vals.low_level.shape
         self.max_low_level = vals.low_level.reshape(batch_size, -1).max(1)[0]
-        low_level = vals.low_level / self.max_low_level
+        low_level = (vals.low_level.reshape(batch_size, -1).permute(1, 0) / self.max_low_level).permute(1, 0).reshape(low_shape)
 
         return DecompValues(
             high_level=vals.high_level,
@@ -66,10 +68,16 @@ class PhaseNet(nn.Module):
         )
 
     def reverse_normalize(self, vals):
-        amplitudes = [vals.amplitude[i] * max_ampl for i, max_ampl in enumerate(self.max_amplitudes)]
+        amplitudes = []
+        for i, max_ampl in enumerate(self.max_amplitudes):
+            amp_shape = vals.amplitude[i].shape
+            batch_size = int(amp_shape[0]/self.pyr.nbands)
+
+            amplitudes.append((vals.amplitude[i].reshape(batch_size, -1).permute(1, 0) * max_ampl).permute(1, 0).reshape(amp_shape))
 
         # low_level
-        low_level = vals.low_level * self.max_low_level
+        low_shape = vals.low_level.shape
+        low_level = (vals.low_level.reshape(low_shape[0], -1).permute(1, 0) * self.max_low_level).permute(1, 0).reshape(low_shape)
 
         return DecompValues(
             high_level=vals.high_level,
