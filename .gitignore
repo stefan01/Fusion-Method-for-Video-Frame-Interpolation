@@ -7,4 +7,5 @@ Trainset/
 Testset/*
 !Testset/*.mp4
 output_adacof_train
+output_phase_net_train
 do_not_commit.py
