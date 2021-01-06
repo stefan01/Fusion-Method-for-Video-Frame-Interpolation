@@ -54,19 +54,26 @@ class PhaseNet(nn.Module):
         # Normalize phase
         phases = [x / math.pi for x in vals.phase]
 
+        # Normalize low_level
+        self.max_low_level = vals.low_level.reshape(batch_size, -1).max(1)[0]
+        low_level = vals.low_level / self.max_low_level
+
         return DecompValues(
             high_level=vals.high_level,
-            low_level=vals.low_level,
+            low_level=low_level,
             amplitude=amplitudes,
             phase=phases
         )
 
     def reverse_normalize(self, vals):
-        #amplitudes = [vals.amplitude[i] * max_ampl for i, max_ampl in enumerate(self.max_amplitudes)]
-        amplitudes = vals.amplitude
+        amplitudes = [vals.amplitude[i] * max_ampl for i, max_ampl in enumerate(self.max_amplitudes)]
+
+        # low_level
+        low_level = vals.low_level * self.max_low_level
+
         return DecompValues(
             high_level=vals.high_level,
-            low_level=vals.low_level,
+            low_level=low_level,
             amplitude=amplitudes[::-1],
             phase= [x*math.pi for x in vals.phase][::-1]
             )
@@ -102,7 +109,7 @@ class PhaseNet(nn.Module):
 
         # Use torch.zeros with right shape, mean of both input high levels (test both) Flow levels of AdaCof
         hl_shape = vals.high_level.shape
-        high_level = torch.zeros((hl_shape[0], 1, hl_shape[2], hl_shape[3]), device=self.device)
+        high_level = torch.ones((hl_shape[0], 1, hl_shape[2], hl_shape[3]), device=self.device)
 
         values = self.reverse_normalize(DecompValues(
             high_level=high_level,
@@ -138,7 +145,7 @@ class PhaseNetBlock(nn.Module):
         self.to(device)
 
     def forward(self, x):
-       f = self.feature_map(x)
-       c = self.prediction_map(f)
+        f = self.feature_map(x)
+        c = self.prediction_map(f)
 
-       return f, c
+        return f, c

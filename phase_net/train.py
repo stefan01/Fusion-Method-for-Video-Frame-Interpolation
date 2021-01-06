@@ -73,7 +73,7 @@ def main():
     while not my_trainer.terminate():
         my_trainer.train()
         my_trainer.test()
-    
+
     loss_hist = np.asarray(my_trainer.loss_history)
     np.savetxt(args.out_dir + '/loss_hist.txt', loss_hist)
 

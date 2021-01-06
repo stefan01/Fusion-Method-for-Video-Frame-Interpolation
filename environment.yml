@@ -1,12 +1,12 @@
-name: dl-cv
+name: dl-cv2
 channels:
   - pytorch
   - conda-forge
-  - defaults
   - photosynthesis-team
+  - defaults
 dependencies:
   - python=3.6
-  - numpy
+  - p
   - six
   - pytorch>=1.6.0
   - torchvision

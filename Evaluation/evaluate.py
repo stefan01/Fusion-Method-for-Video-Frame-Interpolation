@@ -103,7 +103,7 @@ def draw_difference(pred_img, target_img, out_path, error, number):
 
 
 
-testsets = ['Clip1', 'Clip2']
+testsets = ['Clip11', 'Clip9']
 for testset in testsets:
     if(not os.path.isdir(f'{tmp_dir}/{testset}')):
         testset_path = f'../Testset/{testset}'

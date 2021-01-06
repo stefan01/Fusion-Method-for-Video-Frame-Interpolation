@@ -38,6 +38,7 @@ def video_to_images(input_video, output_directory, crop=False, resize=False, new
     os.makedirs(output_directory, exist_ok=True)
     vid = cv2.VideoCapture(input_video)
     success, image = vid.read()
+    print(success)
 
     # Random Crop Location
     max_x = image.shape[1] - 256
@@ -62,8 +63,10 @@ def video_to_images(input_video, output_directory, crop=False, resize=False, new
 def videos_to_images(input_files, output_directory, crop=False, resize=False, newSize=(1280,720)):
     print(f'Extracting images from videos...')
     for test_video in tqdm(iterable=input_files, total=len(input_files)):
+        print(test_video)
         output_path = os.path.basename(test_video)
         output_path = os.path.splitext(output_path)[0]
+        print(output_path)
         if(not os.path.isdir(f'{output_directory}/{output_path}/')):
             video_to_images(test_video, f'{output_directory}/{output_path}/', crop, resize, newSize)
 
@@ -88,6 +91,7 @@ def images_to_video(input_images, output_file, framerate=30):
 #    root, dirs, files = os.walk(input_files).next()
 #    print(dirs)
 
+"""
 # Create Trainset dir
 try:
     os.mkdir('./Trainset')
@@ -114,8 +118,9 @@ for (url, name) in [
     ('https://cmu.box.com/shared/static/9m2bvwtrii9bwwqn4lr1cv09jtvfd4xi.zip', 'yoyo')
 ]:
     download_and_unzip(f'NFS {name}', url, f'Testset/nfs/{name}.zip', f'Testset/nfs/{name}/')
-
+"""
 # Prepare Testset
+print(glob.glob('Testset/*.mp4'))
 videos_to_images(glob.glob('Testset/*.mp4'), 'Testset', resize=True)
 
 #images_to_video(glob.glob('Testset/Clip1/*.png'), 'Testset/c1.avi')
