@@ -4,6 +4,7 @@ from tqdm import tqdm
 #import torch
 #from torchvision import datasets, transforms
 #import torchvision.transforms.functional as TF
+import cv2
 from piq import ssim, LPIPS, psnr
 from PIL import Image
 import matplotlib.pyplot as plt
@@ -89,42 +90,66 @@ def create_images(testset, test_path, inter_path):
     if not os.path.exists('visual_result'):
         os.makedirs('visual_result')
     for idx, i in enumerate(testset):
+        print('Evaluating {}'.format(i))
         out = 'visual_result/' + i
         if not os.path.exists(out):
             os.makedirs(out)
         ground_truth = [test_path + i + "/" + filename for filename in os.listdir(test_path + "/" + i)][1:-1]
-        print(ground_truth[0])
         inter_image = [inter_path + i + "/" + interpolate for interpolate in os.listdir(inter_path + "/" + i)]
         error = np.load("result_" + i + ".npy")
-        for image_idx in range(len(ground_truth)):
-            print(inter_image[image_idx])
-            print(ground_truth[image_idx])
+        for image_idx in range(len(inter_image) - 1): # TODO: Could be that error is missing one entry?
             draw_difference(np.asarray(Image.open(inter_image[image_idx])), 
                             np.asarray(Image.open(ground_truth[image_idx])),
-                            out, error[image_idx, 0], image_idx)
+                            out, error[image_idx], image_idx)
         
-        print("-" * 10)
+        
+        input_images = sorted(glob.glob('{}/*.png'.format(out)))
+        print(input_images)
+        images_to_video(input_images, '{}/result.avi'.format(out), framerate=10)
 
 
 def draw_difference(pred_img, target_img, out_path, error, number):
+    name = 'img_{}_{}.png'.format(str(number).zfill(3), error[0])
+
+    if os.path.exists(out_path + "/" + name):
+        return
+
     difference = np.average(np.abs(target_img - pred_img), axis=2)
     
-    plt.subplot(1, 3, 1)
+    plt.subplot(2, 2, 1)
     plt.imshow(target_img)
+    plt.axis('off')
     plt.title('Target Image')
 
-    plt.subplot(1, 3, 2)
+    plt.subplot(2, 2, 2)
     plt.imshow(pred_img)
+    plt.axis('off')
     plt.title('Predicted Image')
 
-    plt.subplot(1, 3, 3)
-    plt.imshow(difference, interpolation='none', cmap='gray', vmin=0, vmax=255)
-    plt.colorbar(orientation='horizontal')
+    plt.subplot(2, 1, 2)
+    plt.imshow(difference, interpolation='none', cmap='plasma', vmin=0, vmax=255)
+    plt.axis('off')
+    plt.colorbar()
     plt.title('Difference Image')
 
-    name = 'img_{}_{}.png'.format(number, error)
     plt.savefig(out_path + "/" + name, dpi=600)
+    plt.clf()
 
+def images_to_video(input_images, output_file, framerate=30):
+    print(f'Combining images to video')
+    imgs = []
+    size = (1280, 720)
+    for image_file in input_images:
+        print(image_file)
+        img = cv2.imread(image_file)
+        height, width, layers = img.shape
+        size = (width, height)
+        imgs.append(img)
+
+    out = cv2.VideoWriter(output_file, cv2.VideoWriter.fourcc(*'mp4v'), framerate, size)
+    for img in tqdm(iterable=imgs, total=len(imgs)):
+        out.write(img)
+    out.release()
 
 def draw_measurements(datasets, datasets_results):
     avg_data = []
@@ -209,7 +234,7 @@ for testset in testsets:
 
 testset_path = '../Testset/'
 interpolate_path = 'tmp/'
-create_images(testsets, testset_path, interpolate_path)
+#create_images(testsets, testset_path, interpolate_path)
 
 # Show Results
-# draw_measurements(testsets, results_np)
+draw_measurements(testsets, results_np)
