@@ -26,12 +26,12 @@ parser.add_argument('--out_dir', type=str, default='./output_phase_net_train')
 parser.add_argument('--load', type=str, default=None)
 
 # Learning Options
-parser.add_argument('--epochs', type=int, default=10, help='Max Epochs')
-parser.add_argument('--batch_size', type=int, default=2, help='Batch size')
+parser.add_argument('--epochs', type=int, default=1000, help='Max Epochs')
+parser.add_argument('--batch_size', type=int, default=1, help='Batch size')
 parser.add_argument('--seed', type=int, default=1, help='Seed')
 
 # Optimization specifications
-parser.add_argument('--lr', type=float, default=0.001, help='learning rate')
+parser.add_argument('--lr', type=float, default=3e-3, help='learning rate')
 parser.add_argument('--lr_decay', type=int, default=0, help='learning rate decay per N epochs')
 parser.add_argument('--weight_decay', type=float, default=0, help='weight decay')
 
@@ -61,6 +61,7 @@ def main():
         device=device,
     )
     model = PhaseNet(pyr, device)
+    model.set_layers(1, 9, freeze=True)
 
     start_epoch = 0
     if args.load is not None:

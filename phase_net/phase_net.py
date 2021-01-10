@@ -24,12 +24,18 @@ class PhaseNet(nn.Module):
         self.to(self.device)
 
     def create_architecture(self):
+        """ Create phase net architecture. """
         return nn.ModuleList([
             PhaseNetBlock(2, 64, 1, (1, 1), self.device),
             PhaseNetBlock(64 + 1 + 16, 64, 8, (1, 1), self.device),
             PhaseNetBlock(64 + 8 + 16, 64, 8, (1, 1), self.device),
             *[PhaseNetBlock(64 + 8 + 16, 64, 8, (3 ,3), self.device) for _ in range(self.height-4)]
         ])
+
+    def set_layers(self, start, end, freeze=True):
+        """ Freeze or unfreeze layers. """
+        for param in self.layers[start:end].parameters():
+            param.requires_grad = freeze
 
     # Normalize the amplitude and phase values.
     #
@@ -98,7 +104,7 @@ class PhaseNet(nn.Module):
         # Combined phase, amplitude values
         phase, amplitude = [], []
 
-        for idx in range(len(self.layers)-1):
+        for idx in range(self.height-2):
             # Resize
             res1, res2 = vals.phase[idx].shape[2:]
             # Upsample feature and prediction map to next resolution level
@@ -108,8 +114,8 @@ class PhaseNet(nn.Module):
             concat = torch.cat((feature_r, vals.phase[idx], vals.amplitude[idx], prediction_r), 1)
 
             # pass concatenated layer through phasenet-Block
-            i = idx if idx < 7 else 7
-            feature, prediction = self.layers[i+1](concat)
+            i = idx+1 if idx+1 < len(self.layers)-1 else len(self.layers)-1
+            feature, prediction = self.layers[i](concat)
 
             # append prediction to phase and amplitude
             res1, res2 = prediction.shape[2:]
@@ -118,7 +124,7 @@ class PhaseNet(nn.Module):
 
         # Use torch.zeros with right shape, mean of both input high levels (test both) Flow levels of AdaCof
         hl_shape = vals.high_level.shape
-        high_level = torch.ones((hl_shape[0], 1, hl_shape[2], hl_shape[3]), device=self.device)
+        high_level = torch.zeros((hl_shape[0], 1, hl_shape[2], hl_shape[3]), device=self.device)
 
         values = self.reverse_normalize(DecompValues(
             high_level=high_level,
@@ -144,7 +150,7 @@ class PhaseNetBlock(nn.Module):
         self.feature_map = nn.Sequential(
             nn.Conv2d(c_in, c_out, kernel_size, padding=padding, padding_mode='reflect'),
             nn.ReLU(),
-            nn.BatchNorm2d(c_out),
+            #nn.BatchNorm2d(c_out),
             nn.Conv2d(c_out, c_out, kernel_size, padding=padding, padding_mode='reflect'),
         )
         self.prediction_map = nn.Sequential(

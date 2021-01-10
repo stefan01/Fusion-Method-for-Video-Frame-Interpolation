@@ -6,6 +6,7 @@ from PIL import Image
 from phase_net import PhaseNet
 import torch
 from collections import namedtuple
+import copy
 
 def calc_loss(img1, img2, img_g, pyr, phase_net, weighting_factor=0.1):
     vals1 = pyr.filter(img1)
@@ -132,3 +133,11 @@ def compare_vals(val1, val2, p=1):
         torch.norm(val1.amplitude[i]-val2.amplitude[i], p=p).item()
 
     print('Both values have a difference of:', ll_err + hl_err + ph_err + amp_err)
+
+def exchange_vals(val_base, val_changer, start, end):
+    """ Exchanges values from the changer to the base. The levels from start to end are exchanged. """
+    for level in range(start, end):
+        val_base.phase[level] = val_changer.phase[level]
+        val_base.amplitude[level] = val_changer.amplitude[level]
+
+    return val_base

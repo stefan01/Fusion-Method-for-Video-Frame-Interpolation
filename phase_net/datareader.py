@@ -15,7 +15,7 @@ def cointoss(p):
 
 
 class DBreader_Vimeo90k(Dataset):
-    def __init__(self, db_dir, random_crop=None, resize=None, augment_s=True, augment_t=True):
+    def __init__(self, db_dir, random_crop=None, resize=None, augment_s=False, augment_t=False):
         db_dir += '/sequences'
         self.random_crop = random_crop
         self.augment_s = augment_s
@@ -34,7 +34,7 @@ class DBreader_Vimeo90k(Dataset):
         for folder in self.folder_list:
             self.triplet_list += [(folder + '/' + f) for f in listdir(folder) if isdir(join(folder, f))]
 
-        self.triplet_list = np.array(self.triplet_list)
+        self.triplet_list = np.array(self.triplet_list)[:1]
         self.file_len = len(self.triplet_list)
 
     def __getitem__(self, index):

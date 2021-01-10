@@ -73,8 +73,13 @@ class Trainer:
             vals_1, vals_2, vals_t = separate_vals(vals)
             inp = get_concat_layers(self.pyr, vals_1, vals_2)
 
+            print(torch.norm(inp.low_level.mean(1).unsqueeze(1) - vals_t.low_level))
+
             # predicted intersected image of frame1 and frame2
             vals_o = self.model(inp)
+
+            # Exchange parts for hierarchical training
+            vals_o = exchange_vals(vals_o, vals_t, 0, 10)
 
             # transform output of the network back to an image -> inverse steerable pyramid
             output = self.pyr.inv_filter(vals_o)
@@ -107,11 +112,13 @@ class Trainer:
     def test(self):
         # Get test images
         img = Image.open('Testset/Clip1/000.png')
-        img2 = Image.open('Testset/Clip1/001.png')
+        img_t = Image.open('Testset/Clip1/000.png')
+        img2 = Image.open('Testset/Clip1/002.png')
 
         # Images to tensors
-        img = TF.to_tensor(transforms.RandomCrop((256, 256))(img)).to(self.device)
-        img2 = TF.to_tensor(transforms.RandomCrop((256, 256))(img2)).to(self.device)
+        img = TF.to_tensor(transforms.CenterCrop(256)(img)).to(self.device)
+        img_t = TF.to_tensor(transforms.CenterCrop(256)(img_t)).to(self.device)
+        img2 = TF.to_tensor(transforms.CenterCrop(256)(img2)).to(self.device)
 
         # Get values
         vals1 = self.pyr.filter(img)
@@ -129,6 +136,10 @@ class Trainer:
         img_r = transforms.ToPILImage()(img_r)
         img_r.save(self.args.out_dir + f'/result/img_{self.current_epoch}.png')
 
+        # Save also truth
+        img_t = transforms.ToPILImage()(img_t.detach().cpu())
+        img_t.save(self.args.out_dir + f'/result/truth_{self.current_epoch}.png')
+
     def terminate(self):
         return self.current_epoch >= self.args.epochs
 
@@ -142,24 +153,27 @@ class Trainer:
 def get_loss(vals_o, vals_t, output, target, pyr, weighting_factor=0.1):
     """ PhaseNet special loss. """
     phase_losses = []
+    criterion = nn.L1Loss()
 
-    low_level_loss = torch.norm(vals_o.low_level-vals_t.low_level, p=1)
+    low_level_loss = criterion(vals_o.low_level, vals_t.low_level)
 
     for (phase_r, phase_g) in zip(vals_o.phase, vals_t.phase):
-        phase_r_2 = phase_r.reshape(-1, pyr.nbands, phase_r.shape[2], phase_r.shape[3]).permute(1, 0, 2, 3)
-        phase_g_2 = phase_g.reshape(-1, pyr.nbands, phase_r.shape[2], phase_r.shape[3]).permute(1, 0, 2, 3)
+        delta_psi = phase_r - phase_g
+        phase_losses.append(torch.norm(delta_psi, 1))
+        #phase_r_2 = phase_r.reshape(-1, pyr.nbands, phase_r.shape[2], phase_r.shape[3]).permute(1, 0, 2, 3)
+        #phase_g_2 = phase_g.reshape(-1, pyr.nbands, phase_r.shape[2], phase_r.shape[3]).permute(1, 0, 2, 3)
 
-        for (orientation_r, orientation_g) in zip(phase_r_2, phase_g_2):
-            delta_psi = torch.atan2(torch.sin(orientation_g - orientation_r), torch.cos(orientation_g - orientation_r))
-            phase_losses.append(torch.norm(delta_psi, 1))
+        #for (orientation_r, orientation_g) in zip(phase_r_2, phase_g_2):
+        #    delta_psi = torch.atan2(torch.sin(orientation_g - orientation_r), torch.cos(orientation_g - orientation_r))
+        #    phase_losses.append(torch.norm(delta_psi, 1))
 
     phase_loss = torch.stack(phase_losses, 0).sum(0)
 
     l_1 = torch.norm(target-output, p=1)
 
-    total_loss = l_1 + weighting_factor * phase_loss + low_level_loss
+    total_loss = 0*l_1 + weighting_factor * phase_loss + 10*low_level_loss
     l_1_p = 100*l_1.detach() / total_loss
     phase_loss_p = 100*weighting_factor * phase_loss.detach() / total_loss
-    low_level_loss_p = 100*low_level_loss.detach() / total_loss
+    low_level_loss_p = 100*10*low_level_loss.detach() / total_loss
 
     return total_loss, l_1_p, phase_loss_p, low_level_loss_p
