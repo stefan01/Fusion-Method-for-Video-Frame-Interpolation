@@ -5,6 +5,10 @@ import torch
 from torch import nn
 # from loss import calc_loss
 from collections import namedtuple
+from PIL import Image
+import pickle
+import torchvision.transforms.functional as TF
+import torchvision.transforms as transforms
 
 
 DecompValues = namedtuple(
@@ -100,6 +104,31 @@ class Trainer:
 
         self.current_epoch += 1
 
+    def test(self):
+        # Get test images
+        img = Image.open('Testset/Clip1/000.png')
+        img2 = Image.open('Testset/Clip1/001.png')
+
+        # Images to tensors
+        img = TF.to_tensor(transforms.RandomCrop((256, 256))(img)).to(self.device)
+        img2 = TF.to_tensor(transforms.RandomCrop((256, 256))(img2)).to(self.device)
+
+        # Get values
+        vals1 = self.pyr.filter(img)
+        vals2 = self.pyr.filter(img2)
+
+        # Concat values
+        vals = get_concat_layers(self.pyr, vals1, vals2)
+
+        # Forward pass through phase net
+        vals_r = self.model(vals)
+
+        # Reconstruct image and save
+        img_r = self.pyr.inv_filter(vals_r)
+        img_r = img_r.detach().cpu()
+        img_r = transforms.ToPILImage()(img_r)
+        img_r.save(self.args.out_dir + f'/result/img_{self.current_epoch}.png')
+
     def terminate(self):
         return self.current_epoch >= self.args.epochs
 
@@ -136,6 +165,8 @@ def calc_loss(vals_r, output, target, pyr, weighting_factor=0.1):
 
     phase_losses = []
 
+    low_level_loss = torch.norm(vals_r.low_level-vals_g.low_level, p=1)
+
     for (phase_r, phase_g) in zip(vals_r.phase, vals_g.phase):
         phase_r_2 = phase_r.reshape(-1, pyr.nbands, phase_r.shape[2], phase_r.shape[3]).permute(1, 0, 2, 3)
         phase_g_2 = phase_g.reshape(-1, pyr.nbands, phase_r.shape[2], phase_r.shape[3]).permute(1, 0, 2, 3)
@@ -148,4 +179,4 @@ def calc_loss(vals_r, output, target, pyr, weighting_factor=0.1):
 
     l_1 = torch.norm(target-output, p=1)
 
-    return l_1 + weighting_factor * phase_loss
+    return l_1 + weighting_factor * phase_loss + low_level_loss

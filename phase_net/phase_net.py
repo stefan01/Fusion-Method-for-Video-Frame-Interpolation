@@ -44,7 +44,7 @@ class PhaseNet(nn.Module):
         self.max_amplitudes = []
         batch_size = int(vals.amplitude[0].shape[0])
         for amplitude in vals.amplitude:
-            max_amplitude = amplitude.reshape(batch_size, -1).max(1)[0]
+            max_amplitude = amplitude.reshape(batch_size, -1).max(1)[0] + 0.001
 
             # Save max amplitudes
             self.max_amplitudes.append(max_amplitude)
@@ -57,8 +57,8 @@ class PhaseNet(nn.Module):
 
         # Normalize low_level
         low_shape = vals.low_level.shape
-        self.max_low_level = vals.low_level.reshape(batch_size, -1).max(1)[0]
-        low_level = (vals.low_level.reshape(batch_size, -1).permute(1, 0) / self.max_low_level).permute(1, 0).reshape(low_shape)
+        self.max_low_level = vals.low_level.reshape(batch_size, -1).max(1)[0] + 0.001
+        low_level = (vals.low_level.reshape(batch_size, -1).permute(1, 0) / (self.max_low_level)).permute(1, 0).reshape(low_shape)
 
         return DecompValues(
             high_level=vals.high_level,
@@ -108,7 +108,8 @@ class PhaseNet(nn.Module):
             concat = torch.cat((feature_r, vals.phase[idx], vals.amplitude[idx], prediction_r), 1)
 
             # pass concatenated layer through phasenet-Block
-            feature, prediction = self.layers[idx+1](concat)
+            i = idx if idx < 7 else 7
+            feature, prediction = self.layers[i+1](concat)
 
             # append prediction to phase and amplitude
             res1, res2 = prediction.shape[2:]

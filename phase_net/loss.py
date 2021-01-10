@@ -63,3 +63,35 @@ def get_concat_layers(pyr, vals1, vals2):
         phase=phase[::-1],
         amplitude=amplitude[::-1]
         )
+
+def seperate_vals(vals):
+    """ Seperates input image batches and ground truth batches. """
+    # Low level
+    low_level = vals.low_level.reshape(3, -1, vals.low_level.shape[2], vals.low_level.shape[3])
+    ll_1 = low_level[0].unsqueeze(1)
+    ll_2 = low_level[1].unsqueeze(1)
+    ll_g = low_level[2].unsqueeze(1)
+
+    # High level
+    high_level = vals.high_level.reshape(3, -1, vals.high_level.shape[2], vals.high_level.shape[3])
+    hl_1 = high_level[0].unsqueeze(1)
+    hl_2 = high_level[1].unsqueeze(1)
+    hl_g = high_level[2].unsqueeze(1)
+
+    print(ll_1.shape, hl_1.shape)
+
+def transform_vals(vals, channels_per_image=3):
+    """ Transforms the vals, so the phase net can use them more easily. """
+    # Number of pictures
+    num_pic = int(vals.low_level.shape[0]/channels_per_image)
+
+    # High and low level
+    low_level = vals.low_level.reshape(num_pic, -1, vals.low_level.shape[2], vals.low_level.shape[3]).permute(1, 0, 2, 3)
+    high_level = vals.high_level.reshape(num_pic, -1, vals.high_level.shape[2], vals.high_level.shape[3]).permute(1, 0, 2, 3)
+
+    return DecompValues(
+        high_level=high_level,
+        low_level=low_level,
+        phase=vals.phase,
+        amplitude=vals.amplitude
+        )
