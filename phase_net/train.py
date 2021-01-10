@@ -27,7 +27,7 @@ parser.add_argument('--load', type=str, default=None)
 
 # Learning Options
 parser.add_argument('--epochs', type=int, default=12, help='Max Epochs')
-parser.add_argument('--batch_size', type=int, default=32, help='Batch size')
+parser.add_argument('--batch_size', type=int, default=8, help='Batch size')
 parser.add_argument('--seed', type=int, default=1, help='Seed')
 
 # Optimization specifications
@@ -60,14 +60,18 @@ def main():
         scale_factor=np.sqrt(2),
         device=device,
     )
-    model = PhaseNet(pyr, device)
-    model.set_layers(1, 9, freeze=True)
 
-    start_epoch = 0
+    # PhaseNet
+    m = 1
+    model = PhaseNet(pyr, device)
+    model.set_layers(0, m, freeze=True)
+    model.set_layers(m+1, 9, freeze=True)
+
+    start_epoch = 2
     if args.load is not None:
         model.load_state_dict(torch.load(args.load + f'/model_{start_epoch}.pt'))
 
-    my_trainer = Trainer(args, train_loader, model, my_pyr=pyr, batch_size=args.batch_size, start_epoch=start_epoch)
+    my_trainer = Trainer(args, train_loader, model, my_pyr=pyr, batch_size=args.batch_size, start_epoch=start_epoch, m=m)
 
     now = datetime.datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     with open(args.out_dir + '/config.txt', 'a') as f:

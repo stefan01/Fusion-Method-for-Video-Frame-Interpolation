@@ -24,7 +24,7 @@ DecompValues = namedtuple(
 class Trainer:
     def __init__(self, args, train_loader, my_model, my_pyr, batch_size=1,
                  lR=0.001, weight_decay= 0.0001, start_epoch=0,
-                 epoch=10, show_Image=False):
+                 epoch=10, show_Image=False, m=0):
         self.args = args
         self.train_loader = train_loader
         self.max_step = self.train_loader.__len__()
@@ -37,6 +37,7 @@ class Trainer:
         self.current_epoch = start_epoch
         self.show_Image = show_Image
         self.device = my_pyr.device
+        self.m = m
 
         self.optimizer = torch.optim.Adam(self.model.parameters(),
                                           lr=self.lR,
@@ -74,10 +75,10 @@ class Trainer:
             inp = get_concat_layers(self.pyr, vals_1, vals_2)
 
             # predicted intersected image of frame1 and frame2
-            vals_o = self.model(inp)
+            vals_o = self.model(inp, self.m)
 
             # Exchange parts for hierarchical training
-            vals_o = exchange_vals(vals_o, vals_t, 0, 10)
+            vals_o = exchange_vals(vals_o, vals_t,  0, 10-self.m)
 
             # transform output of the network back to an image -> inverse steerable pyramid
             output = self.pyr.inv_filter(vals_o)
@@ -127,10 +128,10 @@ class Trainer:
         vals = get_concat_layers(self.pyr, vals1, vals2)
 
         # Forward pass through phase net
-        vals_o = self.model(vals)
+        vals_o = self.model(vals, self.m)
 
         # Exchange parts for hierarchical training
-        vals_o = exchange_vals(vals_o, vals_t, 0, 10)
+        vals_o = exchange_vals(vals_o, vals_t, 0, 10-self.m)
 
         # Reconstruct image and save
         img_r = self.pyr.inv_filter(vals_o)

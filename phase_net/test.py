@@ -55,6 +55,12 @@ img_1 = TF.to_tensor(transforms.RandomCrop((256, 256))(img_1)).to(device)
 img_g = TF.to_tensor(transforms.RandomCrop((256, 256))(img_g)).to(device)
 img_2 = TF.to_tensor(transforms.RandomCrop((256, 256))(img_2)).to(device)
 
+v_test = pyr.filter(img_g)
+v_test.high_level[:] = img_g.unsqueeze(1)
+print(v_test.high_level)
+img_test = pyr.inv_filter(v_test)
+transforms.ToPILImage()(img_test.detach().cpu()).show()
+
 #transforms.ToPILImage()(img.cpu()).show()
 pyr.filter(img_1)
 torch.cuda.synchronize()
