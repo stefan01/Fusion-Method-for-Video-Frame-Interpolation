@@ -26,12 +26,12 @@ parser.add_argument('--out_dir', type=str, default='./output_phase_net_train')
 parser.add_argument('--load', type=str, default=None)
 
 # Learning Options
-parser.add_argument('--epochs', type=int, default=1000, help='Max Epochs')
-parser.add_argument('--batch_size', type=int, default=1, help='Batch size')
+parser.add_argument('--epochs', type=int, default=12, help='Max Epochs')
+parser.add_argument('--batch_size', type=int, default=32, help='Batch size')
 parser.add_argument('--seed', type=int, default=1, help='Seed')
 
 # Optimization specifications
-parser.add_argument('--lr', type=float, default=3e-3, help='learning rate')
+parser.add_argument('--lr', type=float, default=1e-3, help='learning rate')
 parser.add_argument('--lr_decay', type=int, default=0, help='learning rate decay per N epochs')
 parser.add_argument('--weight_decay', type=float, default=0, help='weight decay')
 

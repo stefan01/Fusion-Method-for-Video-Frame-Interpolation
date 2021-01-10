@@ -15,7 +15,7 @@ def cointoss(p):
 
 
 class DBreader_Vimeo90k(Dataset):
-    def __init__(self, db_dir, random_crop=None, resize=None, augment_s=False, augment_t=False):
+    def __init__(self, db_dir, random_crop=None, resize=None, augment_s=True, augment_t=True):
         db_dir += '/sequences'
         self.random_crop = random_crop
         self.augment_s = augment_s
@@ -34,7 +34,7 @@ class DBreader_Vimeo90k(Dataset):
         for folder in self.folder_list:
             self.triplet_list += [(folder + '/' + f) for f in listdir(folder) if isdir(join(folder, f))]
 
-        self.triplet_list = np.array(self.triplet_list)[:1]
+        self.triplet_list = np.array(self.triplet_list)
         self.file_len = len(self.triplet_list)
 
     def __getitem__(self, index):
@@ -47,6 +47,9 @@ class DBreader_Vimeo90k(Dataset):
             rawFrame0 = TF.crop(rawFrame0, i, j, h, w)
             rawFrame1 = TF.crop(rawFrame1, i, j, h, w)
             rawFrame2 = TF.crop(rawFrame2, i, j, h, w)
+            #rawFrame0 = transforms.CenterCrop(256)(rawFrame0)
+            #rawFrame1 = transforms.CenterCrop(256)(rawFrame1)
+            #rawFrame2 = transforms.CenterCrop(256)(rawFrame2)
 
         if self.augment_s:
             if cointoss(0.5):

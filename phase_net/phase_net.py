@@ -22,6 +22,7 @@ class PhaseNet(nn.Module):
         self.device = device
         self.layers = self.create_architecture()
         self.to(self.device)
+        self.eps = 1e-8
 
     def create_architecture(self):
         """ Create phase net architecture. """
@@ -50,7 +51,7 @@ class PhaseNet(nn.Module):
         self.max_amplitudes = []
         batch_size = int(vals.amplitude[0].shape[0])
         for amplitude in vals.amplitude:
-            max_amplitude = amplitude.reshape(batch_size, -1).max(1)[0] + 0.001
+            max_amplitude = amplitude.reshape(batch_size, -1).max(1)[0] + self.eps
 
             # Save max amplitudes
             self.max_amplitudes.append(max_amplitude)
@@ -62,8 +63,9 @@ class PhaseNet(nn.Module):
         phases = [x / math.pi for x in vals.phase]
 
         # Normalize low_level
+        picture_num = int(batch_size/3)
         low_shape = vals.low_level.shape
-        self.max_low_level = vals.low_level.reshape(batch_size, -1).max(1)[0] + 0.001
+        self.max_low_level = vals.low_level.reshape(batch_size, -1).max(1)[0] + self.eps
         low_level = (vals.low_level.reshape(batch_size, -1).permute(1, 0) / (self.max_low_level)).permute(1, 0).reshape(low_shape)
 
         return DecompValues(
@@ -73,26 +75,33 @@ class PhaseNet(nn.Module):
             phase=phases
         )
 
-    def reverse_normalize(self, vals):
+    def reverse_normalize(self, vals, m):
         amplitudes = []
-        for i, max_ampl in enumerate(self.max_amplitudes):
+        phases = [x*math.pi for x in vals.phase]
+        for i in range(m):
+            max_ampl = self.max_amplitudes[i]
             amp_shape = vals.amplitude[i].shape
             batch_size = int(amp_shape[0]/self.pyr.nbands)
 
             amplitudes.append((vals.amplitude[i].reshape(batch_size, -1).permute(1, 0) * max_ampl).permute(1, 0).reshape(amp_shape))
 
+        for _ in range(self.height-2-m):
+            phases.append(0)
+            amplitudes.append(0)
+
         # low_level
         low_shape = vals.low_level.shape
+        picture_num = int(low_shape[0]/3)
         low_level = (vals.low_level.reshape(low_shape[0], -1).permute(1, 0) * self.max_low_level).permute(1, 0).reshape(low_shape)
 
         return DecompValues(
             high_level=vals.high_level,
             low_level=low_level,
             amplitude=amplitudes[::-1],
-            phase= [x*math.pi for x in vals.phase][::-1]
+            phase= phases[::-1]
             )
 
-    def forward(self, vals):
+    def forward(self, vals, m=0):
         vals = self.normalize_vals(vals)
 
         # Get output of first phase-net block
@@ -104,7 +113,7 @@ class PhaseNet(nn.Module):
         # Combined phase, amplitude values
         phase, amplitude = [], []
 
-        for idx in range(self.height-2):
+        for idx in range(m):
             # Resize
             res1, res2 = vals.phase[idx].shape[2:]
             # Upsample feature and prediction map to next resolution level
@@ -124,6 +133,7 @@ class PhaseNet(nn.Module):
 
         # Use torch.zeros with right shape, mean of both input high levels (test both) Flow levels of AdaCof
         hl_shape = vals.high_level.shape
+        #high_level = vals.high_level.mean(1).unsqueeze(1)/2
         high_level = torch.zeros((hl_shape[0], 1, hl_shape[2], hl_shape[3]), device=self.device)
 
         values = self.reverse_normalize(DecompValues(
@@ -131,7 +141,7 @@ class PhaseNet(nn.Module):
             low_level=low_level,
             phase=phase,
             amplitude=amplitude
-        ))
+        ), m)
 
         return values
 

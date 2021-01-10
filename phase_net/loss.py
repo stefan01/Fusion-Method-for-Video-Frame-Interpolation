@@ -136,6 +136,7 @@ def compare_vals(val1, val2, p=1):
 
 def exchange_vals(val_base, val_changer, start, end):
     """ Exchanges values from the changer to the base. The levels from start to end are exchanged. """
+    #val_base.high_level[:] = val_changer.high_level[:]
     for level in range(start, end):
         val_base.phase[level] = val_changer.phase[level]
         val_base.amplitude[level] = val_changer.amplitude[level]
