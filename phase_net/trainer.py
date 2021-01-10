@@ -9,6 +9,7 @@ from PIL import Image
 import pickle
 import torchvision.transforms.functional as TF
 import torchvision.transforms as transforms
+from loss import *
 
 
 DecompValues = namedtuple(
@@ -66,20 +67,19 @@ class Trainer:
             target = triple[1].to(self.device).reshape((-1, heigth, width))
             frame2 = triple[2].to(self.device).reshape((-1, heigth, width))
 
-            # create steerable pyramid for the input frames
-            fram1_pyr = self.pyr.filter(frame1)
-            fram2_pyr = self.pyr.filter(frame2)
+            # combine images into one big batch and then create the values and separate
+            imgs = torch.cat((frame1, frame2, target), 0)
+            vals = self.pyr.filter(imgs)
+            vals_1, vals_2, vals_t = separate_vals(vals)
+            inp = get_concat_layers(self.pyr, vals_1, vals_2)
 
-            inp = get_concat_layers(self.pyr, fram1_pyr, fram2_pyr)
-
-            # predicted intersected image of fram1 and frame2
-            output_pyr = self.model(inp)
+            # predicted intersected image of frame1 and frame2
+            vals_o = self.model(inp)
 
             # transform output of the network back to an image -> inverse steerable pyramid
-            output = self.pyr.inv_filter(output_pyr)
+            output = self.pyr.inv_filter(vals_o)
 
-            loss = calc_loss(output_pyr, output, target, self.pyr)  # input, target
-            #(img1, img2, img_g, pyr, phase_net, weighting_factor=0.1)
+            loss, p1, p2, p3 = get_loss(vals_o, vals_t, output, target, self.pyr)  # input, target
 
             # === The backpropagation
             # Reset the gradients
@@ -95,9 +95,9 @@ class Trainer:
             self.loss_history.append(loss)
 
             if batch_idx % 100 == 0:
-                print('{:<13s}{:<14s}{:<6s}{:<16s}{:<12s}{:<20.16f}'.format('Train Epoch: ',
+                print('{:<13s}{:<14s}{:<6s}{:<16s}{:<12s}{:<20.16f} Percentages: {:<4f}, {:<4f}, {:<4f}'.format('Train Epoch: ',
                       '[' + str(self.current_epoch) + '/' + str(self.args.epochs) + ']', 'Step: ',
-                      '[' + str(batch_idx) + '/' + str(self.max_step) + ']', 'train loss: ', loss.item()))
+                      '[' + str(batch_idx) + '/' + str(self.max_step) + ']', 'train loss: ', loss.item(), p1, p2, p3))
 
                 if self.show_Image:
                     self.show_img(output)
@@ -121,10 +121,10 @@ class Trainer:
         vals = get_concat_layers(self.pyr, vals1, vals2)
 
         # Forward pass through phase net
-        vals_r = self.model(vals)
+        vals_o = self.model(vals)
 
         # Reconstruct image and save
-        img_r = self.pyr.inv_filter(vals_r)
+        img_r = self.pyr.inv_filter(vals_o)
         img_r = img_r.detach().cpu()
         img_r = transforms.ToPILImage()(img_r)
         img_r.save(self.args.out_dir + f'/result/img_{self.current_epoch}.png')
@@ -139,35 +139,13 @@ class Trainer:
         img_p = img.detach().cpu()
         transforms.ToPILImage()(img_p).show()
 
-def get_concat_layers(pyr, vals1, vals2):
-    nbands = pyr.nbands
-
-    vals1_amplitude = [x.reshape((int(x.shape[0] / nbands), nbands, x.shape[2], x.shape[3])) for x in vals1.amplitude]
-    vals2_amplitude = [x.reshape((int(x.shape[0] / nbands), nbands, x.shape[2], x.shape[3])) for x in vals2.amplitude]
-
-    vals1_phase = [x.reshape((int(x.shape[0] / nbands), nbands, x.shape[2], x.shape[3])) for x in vals1.phase]
-    vals2_phase = [x.reshape((int(x.shape[0] / nbands), nbands, x.shape[2], x.shape[3])) for x in vals2.phase]
-
-    high_level = torch.cat((vals1.high_level, vals2.high_level), 1)
-    low_level = torch.cat((vals1.low_level, vals2.low_level), 1)
-    phase = [torch.cat((a, b), 1) for (a, b) in zip(vals1_phase, vals2_phase)]
-    amplitude = [torch.cat((a, b), 1) for (a, b) in zip(vals1_amplitude, vals2_amplitude)]
-
-    return DecompValues(
-        high_level=high_level,
-        low_level=low_level,
-        phase=phase[::-1],
-        amplitude=amplitude[::-1]
-    )
-
-def calc_loss(vals_r, output, target, pyr, weighting_factor=0.1):
-    vals_g = pyr.filter(target)
-
+def get_loss(vals_o, vals_t, output, target, pyr, weighting_factor=0.1):
+    """ PhaseNet special loss. """
     phase_losses = []
 
-    low_level_loss = torch.norm(vals_r.low_level-vals_g.low_level, p=1)
+    low_level_loss = torch.norm(vals_o.low_level-vals_t.low_level, p=1)
 
-    for (phase_r, phase_g) in zip(vals_r.phase, vals_g.phase):
+    for (phase_r, phase_g) in zip(vals_o.phase, vals_t.phase):
         phase_r_2 = phase_r.reshape(-1, pyr.nbands, phase_r.shape[2], phase_r.shape[3]).permute(1, 0, 2, 3)
         phase_g_2 = phase_g.reshape(-1, pyr.nbands, phase_r.shape[2], phase_r.shape[3]).permute(1, 0, 2, 3)
 
@@ -179,4 +157,9 @@ def calc_loss(vals_r, output, target, pyr, weighting_factor=0.1):
 
     l_1 = torch.norm(target-output, p=1)
 
-    return l_1 + weighting_factor * phase_loss + low_level_loss
+    total_loss = l_1 + weighting_factor * phase_loss + low_level_loss
+    l_1_p = 100*l_1.detach() / total_loss
+    phase_loss_p = 100*weighting_factor * phase_loss.detach() / total_loss
+    low_level_loss_p = 100*low_level_loss.detach() / total_loss
+
+    return total_loss, l_1_p, phase_loss_p, low_level_loss_p

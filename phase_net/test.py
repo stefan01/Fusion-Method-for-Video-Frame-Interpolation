@@ -47,73 +47,75 @@ pyr = Pyramid(
 #dataset = DBreader_Vimeo90k('./Trainset/vimeo/vimeo_triplet', random_crop=(256, 256))
 
 # Import images
-img1 = Image.open('Testset/Clip1/000.png')
+img_1 = Image.open('Testset/Clip1/000.png')
 img_g = Image.open('Testset/Clip1/001.png')
-img2 = Image.open('Testset/Clip1/002.png')
+img_2 = Image.open('Testset/Clip1/002.png')
 
-img1 = TF.to_tensor(transforms.RandomCrop((256, 256))(img1)).to(device)
+img_1 = TF.to_tensor(transforms.RandomCrop((256, 256))(img_1)).to(device)
 img_g = TF.to_tensor(transforms.RandomCrop((256, 256))(img_g)).to(device)
-img2 = TF.to_tensor(transforms.RandomCrop((256, 256))(img2)).to(device)
+img_2 = TF.to_tensor(transforms.RandomCrop((256, 256))(img_2)).to(device)
 
 #transforms.ToPILImage()(img.cpu()).show()
-pyr.filter(img1)
+pyr.filter(img_1)
 torch.cuda.synchronize()
 start = torch.cuda.Event(enable_timing=True)
 end = torch.cuda.Event(enable_timing=True)
 
 # Filter both images together
 start.record()
-imgs = torch.cat((img1, img2, img_g), 0)
-vals_test = pyr.filter(imgs)
-#vals_test = transform_vals(vals_test)
+imgs = torch.cat((img_1, img_2, img_g), 0)
+vals_all = pyr.filter(imgs)
+vals_1, vals_2, vals_g = separate_vals(vals_all)
+vals_1_2 = get_concat_layers(pyr, vals_1, vals_2)
 end.record()
 torch.cuda.synchronize()
 
-print(start.elapsed_time(end)/1000, 'sec')
+print('Parallel filtering:', start.elapsed_time(end)/1000, 'sec')
 
 # Filter images alone
 start.record()
-vals1 = pyr.filter(img1)
-vals_g = pyr.filter(img_g)
-vals2 = pyr.filter(img2)
-vals = get_concat_layers(pyr, vals1, vals2)
+vals_1_old = pyr.filter(img_1)
+vals_g_old = pyr.filter(img_g)
+vals_2_old = pyr.filter(img_2)
+vals_1_2_old = get_concat_layers(pyr, vals_1_old, vals_2_old)
 end.record()
 torch.cuda.synchronize()
 
-print(start.elapsed_time(end)/1000, 'sec')
+print('Sequential filtering:', start.elapsed_time(end)/1000, 'sec')
 
-seperate_vals(vals_test)
-print(vals1.low_level.shape, vals1.high_level.shape)
-
-
+# Create PhaseNet
 phase_net = PhaseNet(pyr, device)
-print(torch.norm(vals.low_level-vals_test.low_level, p=2))
 
-exit()
+# Show image before training
+#vals_r = phase_net(vals)
+#img_r = pyr.inv_filter(vals_r)
+#img_p = img_r.detach().cpu()
+#transforms.ToPILImage()(img_p).show()
 
-vals_r = phase_net(vals)
-img_r = pyr.inv_filter(vals_r)
-img_p = img_r.detach().cpu()
-transforms.ToPILImage()(img_p).show()
-
-
+# Optimizer and Loss
 optimizer = optim.Adam(phase_net.parameters(), lr=1e-3)
 criterion = nn.L1Loss()
 
-for epoch in range(200):
+vals_r = phase_net(vals_1_2)
+
+start.record()
+for epoch in range(1):
     optimizer.zero_grad()
 
     # Phase net image
-    vals_r = phase_net(vals)
+    vals_r = phase_net(vals_1_2)
     img_r = pyr.inv_filter(vals_r)
 
     # Error
-    loss = calc_loss(img, img, img, pyr, phase_net)
-    loss.backward()
+    #loss = calc_loss(img_1, img_2, img_g, pyr, phase_net)
+    #loss.backward()
 
     optimizer.step()
-    print(f'Epoch {epoch}  Loss {loss.item()}')
+    #print(f'Epoch {epoch}  Loss {loss.item()}')
+end.record()
+torch.cuda.synchronize()
 
+print('PhaseNet Time:', start.elapsed_time(end)/1000, 'sec')
 
 vals_r = phase_net(vals)
 
