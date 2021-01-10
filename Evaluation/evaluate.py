@@ -6,6 +6,7 @@ import torchvision.transforms.functional as TF
 from piq import ssim, LPIPS, psnr
 from PIL import Image
 import matplotlib.pyplot as plt
+import numpy as np
 
 tmp_dir = 'tmp'
 os.makedirs(tmp_dir, exist_ok=True)
@@ -17,10 +18,10 @@ os.makedirs(tmp_dir, exist_ok=True)
 # Returns all measurements for the image
 def evaluate_image(prediction, target):
     ssim_measure = ssim(prediction, target)
-    lpips_measure = LPIPS(reduction='none')(prediction, target) # Seems to be only available as loss function
+    lpips_measure = LPIPS(reduction='none')(prediction, target)[0] # Seems to be only available as loss function
     psnr_measure = psnr(prediction, target)
 
-    return (ssim_measure, lpips_measure, psnr_measure)
+    return np.array([ssim_measure.numpy(), lpips_measure.numpy(), psnr_measure.numpy()])
 
 # Interpolates image a and b (file paths)
 # and saves the result at output
@@ -86,15 +87,15 @@ def evaluate_dataset(dataset_path):
 def draw_difference(pred_img, target_img, out_path, error, number):
     difference = torch.abs(target_img - pred_img)
 
-    plt.subplot(131)
+    plt.subplot(1, 3, 1)
     plt.imshow(target_img)
     plt.title('Target Image')
 
-    plt.subplot(132)
+    plt.subplot(1, 3, 2)
     plt.imshow(pred_img)
     plt.title('Predicted Image')
 
-    plt.subplot(133)
+    plt.subplot(1, 3, 3)
     plt.imshow(difference)
     plt.title('Difference Image')
 
@@ -102,13 +103,62 @@ def draw_difference(pred_img, target_img, out_path, error, number):
     plt.savefig(out_path + "/" + name)
 
 
+def draw_measurements(datasets, datasets_results):
+    avg_data = []
+    var_data = []
+    for dataset_results in datasets_results:
+        avg = np.average(dataset_results, axis=0)
+        avg_data.append(avg)
 
-testsets = ['Clip11', 'Clip9']
+        var = np.var(dataset_results, axis=0)
+        var_data.append(var)
+
+    avg_data = np.concatenate(avg_data)
+    var_data = np.concatenate(var_data)
+    
+    print(avg_data.shape)
+    print(avg_data)
+    print(var_data.shape)
+    print(var_data)
+    y_pos = np.arange(avg_data.shape[0])
+    
+    plt.subplot(1, 3, 1)
+    plt.errorbar(y_pos, avg_data[:,0], var_data[:,0])
+    plt.xticks(y_pos, datasets)
+    plt.title('SSIM')
+
+    plt.subplot(1, 3, 2)
+    plt.errorbar(y_pos, avg_data[:,1], var_data[:,0])
+    plt.xticks(y_pos, datasets)
+    plt.title('LPIPS')
+
+    plt.subplot(1, 3, 3)
+    plt.errorbar(y_pos, avg_data[:,2], var_data[:,0])
+    plt.xticks(y_pos, datasets)
+    plt.title('PSNR')
+
+    plt.show()
+
+testsets = ['Clip1', 'Clip2', 'Clip3', 'Clip4', 'Clip5', 'Clip6', 'Clip7', 'Clip8', 'Clip9', 'Clip10', 'Clip11']
+
+# Interpolate
 for testset in testsets:
-    if(not os.path.isdir(f'{tmp_dir}/{testset}')):
+    if not os.path.isdir(f'{tmp_dir}/{testset}'):
         testset_path = f'../Testset/{testset}'
         interpolate_dataset(testset_path)
 
+# Evaluate Results
+results_np = []
 for testset in testsets:
-    result = evaluate_dataset(testset)
-    print(f'Result for {testset}: {result}')
+    result_path = f'result_{testset}.npy'
+    if os.path.exists(result_path):
+        result_np = np.load(result_path)
+    else:
+        result = evaluate_dataset(testset)
+        print(f'Result for {testset}: {result}')
+        result_np = np.array(result)
+        np.save(f'result_{testset}.npy', result_np)
+    results_np.append(result_np)
+
+# Show Results
+draw_measurements(testsets, results_np)
