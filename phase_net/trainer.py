@@ -10,6 +10,7 @@ import pickle
 import torchvision.transforms.functional as TF
 import torchvision.transforms as transforms
 from loss import *
+from transform import *
 
 
 DecompValues = namedtuple(
@@ -115,9 +116,14 @@ class Trainer:
         img2 = Image.open('Testset/Clip1/002.png')
 
         # Images to tensors
-        img = TF.to_tensor(transforms.CenterCrop(256)(img)).to(self.device)
-        img_t = TF.to_tensor(transforms.CenterCrop(256)(img_t)).to(self.device)
-        img2 = TF.to_tensor(transforms.CenterCrop(256)(img2)).to(self.device)
+        img = TF.to_tensor(transforms.CenterCrop(256)(img))
+        img_t = TF.to_tensor(transforms.CenterCrop(256)(img_t))
+        img2 = TF.to_tensor(transforms.CenterCrop(256)(img2))
+
+        # Bring images into LAB color space
+        img = rgb2lab(img).to(self.device)
+        img_t = rgb2lab(img_t).to(self.device)
+        img2 = rgb2lab(img2).to(self.device)
 
         # Get values
         vals1 = self.pyr.filter(img)
@@ -135,6 +141,7 @@ class Trainer:
 
         # Reconstruct image and save
         img_r = self.pyr.inv_filter(vals_o)
+        img_r = lab2rgb(img_r)
         img_r = img_r.detach().cpu()
         img_r = transforms.ToPILImage()(img_r)
         img_r.save(self.args.out_dir + f'/result/img_{self.current_epoch}.png')
