@@ -1,9 +1,9 @@
 import sys, os, glob, subprocess
 from matplotlib import image
 from tqdm import tqdm
-#import torch
-#from torchvision import datasets, transforms
-#import torchvision.transforms.functional as TF
+import torch
+from torchvision import datasets, transforms
+import torchvision.transforms.functional as TF
 import cv2
 from piq import ssim, LPIPS, psnr
 from PIL import Image
@@ -43,7 +43,9 @@ def interpolate(a, b, output):
 def interpolate_dataset(dataset_path):
     dataset_name = os.path.basename(dataset_path)
     print('Interpolating Dataset {}'.format(dataset_name))
-    dataset = sorted(glob.glob('{}/*.png').format(dataset_path))
+    dataset = sorted(glob.glob('{}/*.png'.format(dataset_path)))
+    if not dataset:
+        dataset = sorted(glob.glob('{}/*.jpg'.format(dataset_path)))
     it = range(0, len(dataset)-2)
     print(dataset_path)
     for i in tqdm(iterable=it, total=len(it)):
@@ -56,9 +58,9 @@ def interpolate_dataset(dataset_path):
 # Takes interpolated images a and c
 # and compares the result with b
 def evaluate_dataset(dataset_path):
-    print('Evaluating Dataset {}', dataset_path)
+    print('Evaluating Dataset ', dataset_path)
     prediction_folder = sorted(glob.glob('{}/{}/*.png'.format(tmp_dir, dataset_path)))
-    target_folder = sorted(glob.glob('../Testset/{}/*.png').format(dataset_path))
+    target_folder = sorted(glob.glob('../Testset/{}/*.png'.format(dataset_path)))
 
     output_path = os.path.dirname(os.path.dirname(dataset_path)) + "visual_result"
     if not os.path.exists(output_path):
@@ -212,7 +214,7 @@ def draw_measurements(datasets, datasets_results):
     plt.show()
 
 testsets = ['Clip1', 'Clip2', 'Clip3', 'Clip4', 'Clip5', 'Clip6', 'Clip7', 'Clip8', 'Clip9', 'Clip10', 'Clip11', \
-    'nfs/airboard_1/airboard_1/240/airboard_1', 'nfs/airboard_1/airboard_1/30/airboard_1', 'nfs/airplane_landing/airplane_landing/240/airplane_landing', 'nfs/airplane_landing/airplane_landing/30/airplane_landing']
+    'airboard_1', 'airplane_landing', 'airtable_3', 'basketball_1', 'water_ski_2', 'yoyo']
 
 # Interpolate
 for testset in testsets:
