@@ -21,6 +21,7 @@ from loss import *
 from collections import namedtuple
 import time
 import matplotlib.pyplot as plt
+from transform import *
 
 DecompValues = namedtuple(
     'values',
@@ -55,24 +56,6 @@ img_2 = Image.open('Testset/Clip1/002.png')
 img_1 = TF.to_tensor(transforms.RandomCrop((256, 256))(img_1)).to(device)
 img_g = TF.to_tensor(transforms.RandomCrop((256, 256))(img_g)).to(device)
 img_2 = TF.to_tensor(transforms.RandomCrop((256, 256))(img_2)).to(device)
-
-from skimage import color
-
-
-lab = color.rgb2lab(img_1.permute(1, 2, 0).detach().cpu().numpy())
-lab[:,:,0] /= 100
-lab[:,:,1:] += 128
-lab[:,:,1:] /= 255
-
-rgb = lab.copy()
-rgb[:,:,0] *= 100
-rgb[:,:,1:] *= 255
-rgb[:,:,1:] -= 128
-rgb = color.lab2rgb(rgb)
-plt.imshow(rgb)
-rgb = np.transpose(rgb, [2, 0, 1])
-
-plt.show()
 
 exit()
 

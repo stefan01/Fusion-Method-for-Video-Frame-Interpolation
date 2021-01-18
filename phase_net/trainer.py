@@ -84,9 +84,9 @@ class Trainer:
             # transform output of the network back to an image -> inverse steerable pyramid
             output = self.pyr.inv_filter(vals_o)
 
-            loss, p1, p2 = get_loss(vals_o, vals_t, output, target, self.pyr)  # input, target
+            # Calculate the loss
+            loss, p1, p2 = get_loss(vals_o, vals_t, output, target, self.pyr)
 
-            # === The backpropagation
             # Reset the gradients
             self.optimizer.zero_grad()
             # Calculate new gradients with backpropagation
@@ -120,6 +120,8 @@ class Trainer:
         img_t = TF.to_tensor(transforms.CenterCrop(256)(img_t))
         img2 = TF.to_tensor(transforms.CenterCrop(256)(img2))
 
+        print(img)
+
         # Bring images into LAB color space
         img = rgb2lab(img).to(self.device)
         img_t = rgb2lab(img_t).to(self.device)
@@ -137,10 +139,11 @@ class Trainer:
         vals_o = self.model(vals, self.m)
 
         # Exchange parts for hierarchical training
-        vals_o = exchange_vals(vals_o, vals_t, 0, 10-self.m)
+        #vals_o = exchange_vals(vals_o, vals_t, 0, 10-self.m)
+
 
         # Reconstruct image and save
-        img_r = self.pyr.inv_filter(vals_o)
+        img_r = self.pyr.inv_filter(vals_t)
         img_r = lab2rgb(img_r)
         img_r = img_r.detach().cpu()
         img_r = transforms.ToPILImage()(img_r)

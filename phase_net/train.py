@@ -26,9 +26,10 @@ parser.add_argument('--out_dir', type=str, default='./output_phase_net_train')
 parser.add_argument('--load', type=str, default=None)
 
 # Learning Options
-parser.add_argument('--epochs', type=int, default=12, help='Max Epochs')
-parser.add_argument('--batch_size', type=int, default=8, help='Batch size')
+parser.add_argument('--epochs', type=int, default=10, help='Max Epochs')
+parser.add_argument('--batch_size', type=int, default=1, help='Batch size')
 parser.add_argument('--seed', type=int, default=1, help='Seed')
+parser.add_argument('--m', type=int, default=None, help='Layers to train from 0 to m')
 
 # Optimization specifications
 parser.add_argument('--lr', type=float, default=1e-3, help='learning rate')
@@ -39,7 +40,7 @@ transform = transforms.Compose([transforms.ToTensor()])
 
 
 def main():
-    #torch.autograd.set_detect_anomaly(True)
+    # Get args and set device
     args = parser.parse_args()
     torch.cuda.set_device(args.gpu_id)
 
@@ -62,17 +63,22 @@ def main():
     )
 
     # PhaseNet
-    m = 1
     model = PhaseNet(pyr, device)
-    model.set_layers(0, m, freeze=True)
-    model.set_layers(m+1, 9, freeze=True)
+    m = 10
+    if args.m is not None:
+        m = args.m
+        model.set_layers(0, m, freeze=True)
+        model.set_layers(m+1, 9, freeze=True)
 
-    start_epoch = 2
+    # Load model if given
+    start_epoch = 0
     if args.load is not None:
-        model.load_state_dict(torch.load(args.load + f'/model_{start_epoch}.pt'))
+        model.load_state_dict(torch.load(args.load))
 
+    # Set trainer
     my_trainer = Trainer(args, train_loader, model, my_pyr=pyr, batch_size=args.batch_size, start_epoch=start_epoch, m=m)
 
+    # Log training
     now = datetime.datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     with open(args.out_dir + '/config.txt', 'a') as f:
         f.write(now + '\n\n')
@@ -80,6 +86,7 @@ def main():
             f.write('{}: {}\n'.format(arg, getattr(args, arg)))
         f.write('\n')
 
+    # Train
     while not my_trainer.terminate():
         my_trainer.train()
         my_trainer.test()

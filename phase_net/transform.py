@@ -4,7 +4,7 @@ import torch
 
 
 def rgb2lab(x):
-    lab = color.rgb2lab(img_1.permute(1, 2, 0).numpy())
+    lab = color.rgb2lab(x.cpu().detach().permute(1, 2, 0).numpy())
     lab[:,:,0] /= 100
     lab[:,:,1:] += 128
     lab[:,:,1:] /= 255
@@ -13,7 +13,7 @@ def rgb2lab(x):
     return lab
 
 def lab2rgb(x):
-    rgb = x.clone().permute(1, 2, 0).numpy()
+    rgb = x.clone().cpu().detach().permute(1, 2, 0).numpy()
     rgb[:,:,0] *= 100
     rgb[:,:,1:] *= 255
     rgb[:,:,1:] -= 128
