@@ -211,7 +211,8 @@ def draw_measurements(datasets, datasets_results):
 
     plt.show()
 
-testsets = ['Clip2', 'Clip3', 'Clip4', 'Clip5', 'Clip6', 'Clip7', 'Clip8', 'Clip9', 'Clip10', 'Clip11']
+testsets = ['Clip1', 'Clip2', 'Clip3', 'Clip4', 'Clip5', 'Clip6', 'Clip7', 'Clip8', 'Clip9', 'Clip10', 'Clip11', \
+    'nfs/airboard_1/airboard_1/240/airboard_1', 'nfs/airboard_1/airboard_1/30/airboard_1', 'nfs/airplane_landing/airplane_landing/240/airplane_landing', 'nfs/airplane_landing/airplane_landing/30/airplane_landing']
 
 # Interpolate
 for testset in testsets:
