@@ -1,6 +1,7 @@
+from cv2 import data
 from tqdm import tqdm
 import numpy as np
-import requests, zipfile, os, glob, cv2
+import requests, zipfile, os, glob, cv2, shutil
 
 def download(url, filename):
     response = requests.get(url, stream=True)
@@ -91,7 +92,16 @@ def images_to_video(input_images, output_file, framerate=30):
 #    root, dirs, files = os.walk(input_files).next()
 #    print(dirs)
 
-"""
+def move_nfs():
+    nfs_folders = os.listdir(os.path.join('Testset', 'nfs'))
+    for nfs_folder in nfs_folders:
+        print('Moving {} to nfs/'.format(nfs_folder))
+        if os.path.exists('Testset/nfs/{}/{}/30/{}/'.format(nfs_folder, nfs_folder, nfs_folder)):
+            shutil.move('Testset/nfs/{}/{}/30/{}/'.format(nfs_folder, nfs_folder, nfs_folder), 'Testset/{}/'.format(nfs_folder))
+        if os.path.exists('Testset/nfs/{}/{}/240/{}/'.format(nfs_folder, nfs_folder, nfs_folder)):
+            shutil.move('Testset/nfs/{}/{}/240/{}/'.format(nfs_folder, nfs_folder, nfs_folder), 'Testset/{}/'.format(nfs_folder))
+
+
 # Create Trainset dir
 try:
     os.mkdir('./Trainset')
@@ -118,7 +128,9 @@ for (url, name) in [
     ('https://cmu.box.com/shared/static/9m2bvwtrii9bwwqn4lr1cv09jtvfd4xi.zip', 'yoyo')
 ]:
     download_and_unzip(f'NFS {name}', url, f'Testset/nfs/{name}.zip', f'Testset/nfs/{name}/')
-"""
+
+move_nfs()
+
 # Prepare Testset
 print(glob.glob('Testset/*.mp4'))
 videos_to_images(glob.glob('Testset/*.mp4'), 'Testset', resize=True)
