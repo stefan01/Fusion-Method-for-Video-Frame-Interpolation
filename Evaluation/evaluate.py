@@ -60,7 +60,12 @@ def interpolate_dataset(dataset_path):
 def evaluate_dataset(dataset_path):
     print('Evaluating Dataset ', dataset_path)
     prediction_folder = sorted(glob.glob('{}/{}/*.png'.format(tmp_dir, dataset_path)))
+    if not prediction_folder:
+        prediction_folder = sorted(glob.glob('{}/{}/*.jpg'.format(tmp_dir, dataset_path)))
+
     target_folder = sorted(glob.glob('../Testset/{}/*.png'.format(dataset_path)))
+    if not target_folder:
+        target_folder = sorted(glob.glob('../Testset/{}/*.jpg'.format(dataset_path)))
 
     output_path = os.path.dirname(os.path.dirname(dataset_path)) + "visual_result"
     if not os.path.exists(output_path):
@@ -96,8 +101,8 @@ def create_images(testset, test_path, inter_path):
         out = 'visual_result/' + i
         if not os.path.exists(out):
             os.makedirs(out)
-        ground_truth = [test_path + i + "/" + filename for filename in os.listdir(test_path + "/" + i)][1:-1]
-        inter_image = [inter_path + i + "/" + interpolate for interpolate in os.listdir(inter_path + "/" + i)]
+        ground_truth = sorted([test_path + i + "/" + filename for filename in os.listdir(test_path + "/" + i)])[1:-1]
+        inter_image = sorted([inter_path + i + "/" + interpolate for interpolate in os.listdir(inter_path + "/" + i)])
         error = np.load("result_" + i + ".npy")
         for image_idx in range(len(inter_image) - 1): # TODO: Could be that error is missing one entry?
             draw_difference(np.asarray(Image.open(inter_image[image_idx])), 
