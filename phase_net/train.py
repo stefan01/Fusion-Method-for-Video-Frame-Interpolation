@@ -65,10 +65,11 @@ def main():
     # PhaseNet
     model = PhaseNet(pyr, device)
     m = 10
+    model.set_layers(0, 5, freeze=True)
     if args.m is not None:
         m = args.m
         model.set_layers(0, m, freeze=True)
-        model.set_layers(m+1, 9, freeze=True)
+        #model.set_layers(m+1, 9, freeze=True)
 
     # Load model if given
     start_epoch = 0
@@ -76,7 +77,7 @@ def main():
         model.load_state_dict(torch.load(args.load))
 
     # Set trainer
-    my_trainer = Trainer(args, train_loader, model, my_pyr=pyr, batch_size=args.batch_size, start_epoch=start_epoch, m=m)
+    my_trainer = Trainer(args, train_loader, model, my_pyr=pyr, batch_size=args.batch_size, lR=args.lr, start_epoch=start_epoch, m=m)
 
     # Log training
     now = datetime.datetime.now().strftime('%Y-%m-%d-%H:%M:%S')

@@ -133,8 +133,8 @@ class PhaseNet(nn.Module):
 
         # Use torch.zeros with right shape, mean of both input high levels (test both) Flow levels of AdaCof
         hl_shape = vals.high_level.shape
-        high_level = vals.high_level.mean(1).unsqueeze(1)
-        #high_level = torch.zeros((hl_shape[0], 1, hl_shape[2], hl_shape[3]), device=self.device)
+        #high_level = vals.high_level.mean(1).unsqueeze(1)
+        high_level = torch.zeros((hl_shape[0], 1, hl_shape[2], hl_shape[3]), device=self.device)
 
         values = self.reverse_normalize(DecompValues(
             high_level=high_level,

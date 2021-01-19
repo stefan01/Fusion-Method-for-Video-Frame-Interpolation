@@ -24,8 +24,8 @@ DecompValues = namedtuple(
 
 class Trainer:
     def __init__(self, args, train_loader, my_model, my_pyr, batch_size=1,
-                 lR=0.001, weight_decay= 0.0001, start_epoch=0,
-                 epoch=10, show_Image=False, m=0):
+                 lR=0.001, weight_decay= 0.0, start_epoch=0,
+                 m=0):
         self.args = args
         self.train_loader = train_loader
         self.max_step = self.train_loader.__len__()
@@ -34,9 +34,7 @@ class Trainer:
         self.batch_size = batch_size
         self.lR = lR
         self.wD = weight_decay
-        self.epoch = epoch
         self.current_epoch = start_epoch
-        self.show_Image = show_Image
         self.device = my_pyr.device
         self.m = m
 
@@ -79,7 +77,7 @@ class Trainer:
             vals_o = self.model(inp, self.m)
 
             # Exchange parts for hierarchical training
-            vals_o = exchange_vals(vals_o, vals_t,  0, 10-self.m)
+            #vals_o = exchange_vals(vals_o, vals_t,  0, 10-self.m)
 
             # transform output of the network back to an image -> inverse steerable pyramid
             output = self.pyr.inv_filter(vals_o)
@@ -100,16 +98,15 @@ class Trainer:
             self.loss_history.append(loss)
 
             if batch_idx % 100 == 0:
+                self.test(int(batch_idx/100))
                 print('{:<13s}{:<14s}{:<6s}{:<16s}{:<12s}{:<20.16f} Percentages: {:<4f}, {:<4f}'.format('Train Epoch: ',
                       '[' + str(self.current_epoch) + '/' + str(self.args.epochs) + ']', 'Step: ',
                       '[' + str(batch_idx) + '/' + str(self.max_step) + ']', 'train loss: ', loss.item(), p1, p2))
-
-                if self.show_Image:
-                    self.show_img(output)
+                torch.save(self.model.state_dict(), self.args.out_dir + f'/checkpoint/model_{self.current_epoch}_{int(batch_idx/100)}.pt')
 
         self.current_epoch += 1
 
-    def test(self):
+    def test(self, idx=None):
         # Get test images
         img = Image.open('Testset/Clip1/000.png')
         img_t = Image.open('Testset/Clip1/001.png')
@@ -119,8 +116,6 @@ class Trainer:
         img = TF.to_tensor(transforms.CenterCrop(256)(img))
         img_t = TF.to_tensor(transforms.CenterCrop(256)(img_t))
         img2 = TF.to_tensor(transforms.CenterCrop(256)(img2))
-
-        print(img)
 
         # Bring images into LAB color space
         img = rgb2lab(img).to(self.device)
@@ -141,13 +136,16 @@ class Trainer:
         # Exchange parts for hierarchical training
         #vals_o = exchange_vals(vals_o, vals_t, 0, 10-self.m)
 
-
         # Reconstruct image and save
-        img_r = self.pyr.inv_filter(vals_t)
+        img_r = self.pyr.inv_filter(vals_o)
         img_r = lab2rgb(img_r)
         img_r = img_r.detach().cpu()
         img_r = transforms.ToPILImage()(img_r)
-        img_r.save(self.args.out_dir + f'/result/img_{self.current_epoch}.png')
+        if idx is not None:
+            name = f'/result/img_{self.current_epoch}_{idx}.png'
+        else:
+            name = f'/result/img_{self.current_epoch}.png'
+        img_r.save(self.args.out_dir + name)
 
         # Save also truth
         #img_t = transforms.ToPILImage()(img_t.detach().cpu())
@@ -159,31 +157,26 @@ class Trainer:
     def close(self):
         self.logfile.close()
 
-    def show_img(self, img):
-        img_p = img.detach().cpu()
-        transforms.ToPILImage()(img_p).show()
-
-def get_loss(vals_o, vals_t, output, target, pyr, weighting_factor=0.1):
+def get_loss(vals_o, vals_t, output, target, pyr, weighting_factor=0.0):
     """ PhaseNet special loss. """
-    phase_losses = []
+    phase_loss = 0
     l1loss = nn.L1Loss()
 
-    for (phase_r, phase_g) in zip(vals_o.phase, vals_t.phase):
-        #delta_psi = phase_r - phase_g
-        #phase_losses.append(torch.norm(delta_psi, 1))
+    for idx, (phase_r, phase_g) in enumerate(zip(vals_o.phase, vals_t.phase)):
+        #print(phase_r.shape, idx, 2**idx)
+        #phase_loss += (2**idx)*weighting_factor*l1loss(phase_r , phase_g)
         phase_r_2 = phase_r.reshape(-1, pyr.nbands, phase_r.shape[2], phase_r.shape[3]).permute(1, 0, 2, 3)
         phase_g_2 = phase_g.reshape(-1, pyr.nbands, phase_r.shape[2], phase_r.shape[3]).permute(1, 0, 2, 3)
 
         for (orientation_r, orientation_g) in zip(phase_r_2, phase_g_2):
             delta_psi = torch.atan2(torch.sin(orientation_g - orientation_r), torch.cos(orientation_g - orientation_r))
-            phase_losses.append(torch.norm(delta_psi, 1))
+            phase_loss += l1loss(delta_psi, torch.zeros(delta_psi.shape, device=delta_psi.device))
 
-    phase_loss = torch.stack(phase_losses, 0).sum(0)
+    #low_loss = l1loss(vals_o.low_level, vals_t.low_level)
+    l_1 = 1e3*l1loss(output, target)
 
-    l_1 = l1loss(output, target)
-
-    total_loss = l_1 + weighting_factor * phase_loss
+    total_loss = l_1 + weighting_factor*phase_loss
     l_1_p = 100*l_1.detach() / total_loss
-    phase_loss_p = 100*weighting_factor * phase_loss.detach() / total_loss
+    phase_loss_p = 100*weighting_factor*phase_loss.detach() / total_loss
 
     return total_loss, l_1_p, phase_loss_p
