@@ -38,14 +38,15 @@ class PhaseNet(nn.Module):
         for param in self.layers[start:end].parameters():
             param.requires_grad = freeze
 
-    # Normalize the amplitude and phase values.
-    #
-    # Input amplitude values go from zero to unbound
-    # Input phase values go from -pi to pi
-    #
-    # Amplitude values are normalized to the range 0 to 1
-    # Phase values are normalized to the range -1 to 1
     def normalize_vals(self, vals):
+        """
+        Normalize the amplitude and phase values.
+        Input amplitude values go from zero to unbound
+        Input phase values go from -pi to pi
+
+        Amplitude values are normalized to the range 0 to 1
+        Phase values are normalized to the range -1 to 1
+        """
         # Normalize amplitude
         amplitudes = []
         self.max_amplitudes = []
@@ -76,6 +77,7 @@ class PhaseNet(nn.Module):
         )
 
     def reverse_normalize(self, vals, m):
+        """ Reverse the normalization. """
         amplitudes = []
         phases = [x*math.pi for x in vals.phase]
         for i in range(m):
@@ -102,6 +104,7 @@ class PhaseNet(nn.Module):
             )
 
     def forward(self, vals, m=0):
+        """ Forward pass through network. """
         vals = self.normalize_vals(vals)
 
         # Get output of first phase-net block
@@ -144,7 +147,6 @@ class PhaseNet(nn.Module):
         ), m)
 
         return values
-
 
 class PhaseNetBlock(nn.Module):
     """

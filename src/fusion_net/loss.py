@@ -3,7 +3,6 @@ import numpy as np
 from skimage import io
 import matplotlib.pyplot as plt
 from PIL import Image
-from phase_net import PhaseNet
 import torch
 from collections import namedtuple
 import copy
@@ -57,6 +56,53 @@ def get_concat_layers(pyr, vals1, vals2):
     low_level = torch.cat((vals1.low_level, vals2.low_level), 1)
     phase = [torch.cat((a, b), 1) for (a, b) in zip(vals1_phase, vals2_phase)]
     amplitude = [torch.cat((a, b), 1) for (a, b) in zip(vals1_amplitude, vals2_amplitude)]
+
+    return DecompValues(
+        high_level=high_level,
+        low_level=low_level,
+        phase=phase[::-1],
+        amplitude=amplitude[::-1]
+        )
+
+def get_concat_layers_inf(pyr, vals_list):
+    """ Combines values and transforms them so the PhaseNet can use them more easily. 
+
+    vals_list: List of DecompValus
+    
+    returns: Concatenated DecompValues
+    """
+    nbands = pyr.nbands
+
+    vals1 = vals_list[0]
+    vals2 = vals_list[2]
+
+    vals_amplitude = []
+    vals_phase = []
+
+    for element in vals_list:
+        # Concatenate Amplitude
+        vals_amplitude.append([x.reshape((int(x.shape[0] / nbands), nbands, x.shape[2], x.shape[3])) for x in element.amplitude])
+        # Concatenate Phases
+        vals_phase.append([x.reshape((int(x.shape[0] / nbands), nbands, x.shape[2], x.shape[3])) for x in element.phase])
+
+    # Concatenate Amplitude
+    vals1_amplitude = [x.reshape((int(x.shape[0] / nbands), nbands, x.shape[2], x.shape[3])) for x in vals1.amplitude]
+    vals2_amplitude = [x.reshape((int(x.shape[0] / nbands), nbands, x.shape[2], x.shape[3])) for x in vals2.amplitude]
+    # Concatenate Phases
+    vals1_phase = [x.reshape((int(x.shape[0] / nbands), nbands, x.shape[2], x.shape[3])) for x in vals1.phase]
+    vals2_phase = [x.reshape((int(x.shape[0] / nbands), nbands, x.shape[2], x.shape[3])) for x in vals2.phase]
+
+    print(vals1.low_level.shape)
+    print(vals2.low_level.shape)
+
+    high_level = torch.cat([ele.high_level for ele in vals_list], 1)
+    low_level = torch.cat([ele.low_level for ele in vals_list], 1)
+    phase = [torch.cat((a, b), 1) for (a, b) in zip(vals1_phase, vals2_phase)]
+    amplitude = [torch.cat((a, b), 1) for (a, b) in zip(vals1_amplitude, vals2_amplitude)]
+
+    phase_test = []
+    for i in range(len(vals_list)):
+        
 
     return DecompValues(
         high_level=high_level,

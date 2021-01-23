@@ -1,8 +1,8 @@
 import torch
-import cupy_module.adacof as adacof
+import src.adacof.cupy_module.adacof as adacof
 import sys
 from torch.nn import functional as F
-from utility import CharbonnierFunc, moduleNormalize
+from src.adacof.utility import CharbonnierFunc, moduleNormalize
 
 
 def make_model(args):

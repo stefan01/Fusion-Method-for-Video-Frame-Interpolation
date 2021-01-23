@@ -26,9 +26,20 @@ def evaluate_image(prediction, target):
     return np.array([ssim_measure.numpy(), lpips_measure.numpy(), psnr_measure.numpy()])
 
 # Interpolates image a and b (file paths)
-# and saves the result at output
-def interpolate(a, b, output):
-    print('Interpolating {} and {} to {}'.format(a, b, output))
+# using adacof and saves the result at output
+def interpolate_adacof(a, b, output):
+    print('Interpolating {} and {} to {} with adacof'.format(a, b, output))
+    subprocess.run([
+        sys.executable,
+        '../AdaCoF/interpolate_twoframe.py',
+        '--first_frame', a,
+        '--second_frame', b,
+        '--output_frame', output,
+        '--checkpoint', '../AdaCoF/checkpoint/kernelsize_5/ckpt.pth',
+        '--config', '../AdaCoF/checkpoint/kernelsize_5/config.txt'])
+
+def interpolate_phasenet(a, b, output):
+    print('Interpolating {} and {} to {} with phasenet'.format(a, b, output))
     subprocess.run([
         sys.executable,
         '../AdaCoF/interpolate_twoframe.py',
@@ -50,16 +61,19 @@ def interpolate_dataset(dataset_path):
     print(dataset_path)
     for i in tqdm(iterable=it, total=len(it)):
         interpolated_filename = os.path.basename(dataset[i+1])
-        output_path = '{}/{}/{}'.format(tmp_dir, dataset_name, interpolated_filename)
+        output_path_adacof = '{}/{}/adacof/{}'.format(tmp_dir, dataset_name, interpolated_filename)
+        output_path_phasenet = '{}/{}/phasenet/{}'.format(tmp_dir, dataset_name, interpolated_filename)
         os.makedirs('{}/{}'.format(tmp_dir, dataset_name), exist_ok=True)
-        interpolate(dataset[i], dataset[i+2], output_path)
+        interpolate_adacof(dataset[i], dataset[i+2], output_path_adacof)
+        interpolate_phasenet(dataset[i], dataset[i+2], output_path_phasenet)
 
 # Evaluates a dataset.
 # Takes interpolated images a and c
 # and compares the result with b
 def evaluate_dataset(dataset_path):
     print('Evaluating Dataset ', dataset_path)
-    prediction_folder = sorted(glob.glob('{}/{}/*.png'.format(tmp_dir, dataset_path)))
+    prediction_folder_adacof = sorted(glob.glob('{}/{}/adacof/*.png'.format(tmp_dir, dataset_path)))
+    prediction_folder_phasenet = sorted(glob.glob('{}/{}/phasenet/*.png'.format(tmp_dir, dataset_path)))
     target_folder = sorted(glob.glob('../Testset/{}/*.png'.format(dataset_path)))
 
     output_path = os.path.dirname(os.path.dirname(dataset_path)) + "visual_result"
@@ -68,22 +82,23 @@ def evaluate_dataset(dataset_path):
 
     eval_results = []
 
-    it = range(1, len(prediction_folder)) 
+    it = range(1, len(prediction_folder_adacof)) 
 
     for i in tqdm(iterable=it, total=len(it)):
         # Load Images
-        image_prediction = Image.open(prediction_folder[i])
+        image_prediction_adacof = Image.open(prediction_folder_adacof[i])
+        image_prediction_phasenet = Image.open(prediction_folder_phasenet[i])
         image_target = Image.open(target_folder[i])
 
-        tensor_prediction = TF.to_tensor(image_prediction)
+        tensor_prediction_adacof = TF.to_tensor(image_prediction_adacof)
+        tensor_prediction_phasenet = TF.to_tensor(image_prediction_phasenet)
         tensor_target = TF.to_tensor(image_target)
 
         # Evaluate
-        eval_result = evaluate_image(tensor_prediction, tensor_target)
-        eval_results.append(eval_result)
+        eval_result_adacof = evaluate_image(tensor_prediction_adacof, tensor_target)
+        eval_result_phasenet = evaluate_image(tensor_prediction_phasenet, tensor_target)
 
-        # draw images
-        #draw_difference(prediction_folder[i], target_folder[i], output_path, eval_result[0], i)
+        eval_results.append(np.stack(eval_result_adacof, eval_result_phasenet))
 
     return eval_results
 
@@ -237,7 +252,7 @@ for testset in testsets:
 
 testset_path = '../Testset/'
 interpolate_path = 'tmp/'
-#create_images(testsets, testset_path, interpolate_path)
+create_images(testsets, testset_path, interpolate_path)
 
 # Show Results
 draw_measurements(testsets, results_np)
