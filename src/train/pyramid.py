@@ -84,6 +84,8 @@ class Pyramid:
     def values_to_coeff(self, values):
         ndims, _, H, W = values.high_level.shape
 
+        # print(values.amplitude[0])
+
         # reorder amplitude and phase elements to list with list of 4 tensors for each level
         amplitude = self.reorder(values.amplitude, ndims)
         phase = self.reorder(values.phase, ndims)

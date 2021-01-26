@@ -9,7 +9,7 @@ from torch.autograd import Variable
 parser = argparse.ArgumentParser(description='Two-frame Interpolation')
 
 parser.add_argument('--gpu_id', type=int, default=0)
-parser.add_argument('--model', type=str, default='adacofnet')
+parser.add_argument('--model', type=str, default='src.fusion_net.fusion_adacofnet')
 parser.add_argument('--checkpoint', type=str, default='src/adacof/checkpoint/kernelsize_5/ckpt.pth')
 parser.add_argument('--config', type=str, default='src/adacof/checkpoint/kernelsize_5/config.txt')
 
@@ -18,7 +18,8 @@ parser.add_argument('--dilation', type=int, default=1)
 
 parser.add_argument('--first_frame', type=str, default='src/adacof/sample_twoframe/0.png')
 parser.add_argument('--second_frame', type=str, default='src/adacof/sample_twoframe/1.png')
-parser.add_argument('--output_frame', type=str, default='src/adacof/output.png')
+parser.add_argument('--output_frame1', type=str, default='output1.png')
+parser.add_argument('--output_frame2', type=str, default='output2.png')
 
 transform = transforms.Compose([transforms.ToTensor()])
 
@@ -64,13 +65,19 @@ def main():
     model.eval()
     frame_out1, frame_out2 = model(frame1, frame2)
 
+    imgs = torch.cat((frame1, frame2, frame_out1, frame_out2), 0)
+    vals_all = pyr.filter(imgs)
+    vals_1, vals_2, vals_3, vals_4 = separate_vals(vals_all) # TODO for new images?
+    vals_list = [vals_1, vals_2, vals_3, vals_4]
+    vals = get_concat_layers_inf(pyr, vals_list)
+
     print('Frame 1: {}'.format(frame_out1.shape))
     print(frame_out1)
     print('Frame 2: {}'.format(frame_out2.shape))
     print(frame_out2)
 
-    #imwrite(frame_out.clone(), args.output_frame, range=(0, 1))
-
+    imwrite(frame_out1.clone(), args.output_frame1, range=(0, 1))
+    imwrite(frame_out2.clone(), args.output_frame2, range=(0, 1))
 
 if __name__ == "__main__":
     main()

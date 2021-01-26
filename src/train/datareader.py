@@ -8,7 +8,7 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 import torchvision.transforms.functional as TF
 import random
-from transform import *
+from src.train.transform import *
 
 def cointoss(p):
     return random.random() < p

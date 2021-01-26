@@ -1,27 +1,19 @@
-from numpy.lib.twodim_base import tri
-from pyramid import Pyramid
-# from datareader import DBreader_Vimeo90k
-from torch.utils.data import DataLoader, dataloader
+from src.train.pyramid import Pyramid
 import numpy as np
-import torch
 from collections import namedtuple
-from skimage import io
 import matplotlib.pyplot as plt
 from PIL import Image
-from fusion_net import FusionNet
-from steerable.SCFpyr_PyTorch import SCFpyr_PyTorch
+from src.fusion_net.fusion_net import FusionNet
 import steerable.utils as utils
 import torchvision.transforms.functional as TF
 import torchvision.transforms as transforms
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
-from loss import *
-from collections import namedtuple
+from src.train.loss import *
 import time
-import matplotlib.pyplot as plt
-from transform import *
+from src.train.transform import *
+from src.train.utils import *
 
 DecompValues = namedtuple(
     'values',
@@ -57,12 +49,6 @@ img_1 = TF.to_tensor(transforms.RandomCrop((256, 256))(img_1)).to(device)
 img_g = TF.to_tensor(transforms.RandomCrop((256, 256))(img_g)).to(device)
 img_2 = TF.to_tensor(transforms.RandomCrop((256, 256))(img_2)).to(device)
 
-
-v_test = pyr.filter(img_g)
-v_test.high_level[:] = img_g.unsqueeze(1)
-img_test = pyr.inv_filter(v_test)
-# transforms.ToPILImage()(img_test.detach().cpu()).show()
-
 #transforms.ToPILImage()(img.cpu()).show()
 pyr.filter(img_1)
 torch.cuda.synchronize()
@@ -71,65 +57,42 @@ end = torch.cuda.Event(enable_timing=True)
 
 # Filter both images together
 start.record()
-imgs = torch.cat((img_1, img_2, img_g), 0)
+imgs = torch.cat((img_1, img_2, img_1, img_2, img_g), 0)
 vals_all = pyr.filter(imgs)
-vals_1, vals_2, vals_g = separate_vals(vals_all) # TODO for new images?
-vals_list = [vals_1, vals_1, vals_2, vals_2]
-vals_1_2 = get_concat_layers_inf(pyr, vals_list)
+vals_ = separate_vals(vals_all, 5) # TODO for new images?
+
+vals = get_concat_layers_inf(pyr, vals_[:-1])
+exit()
 end.record()
 torch.cuda.synchronize()
-
-exit()
 
 print('Parallel filtering:', start.elapsed_time(end)/1000, 'sec')
-
-# Filter images alone
-start.record()
-vals_1_old = pyr.filter(img_1)
-vals_g_old = pyr.filter(img_g)
-vals_2_old = pyr.filter(img_2)
-vals_1_2_old = get_concat_layers(pyr, vals_1_old, vals_2_old)
-end.record()
-torch.cuda.synchronize()
-
 print('Sequential filtering:', start.elapsed_time(end)/1000, 'sec')
 
-# Create PhaseNet
-phase_net = PhaseNet(pyr, device)
-
-# Show image before training
-#vals_r = phase_net(vals)
-#img_r = pyr.inv_filter(vals_r)
-#img_p = img_r.detach().cpu()
-#transforms.ToPILImage()(img_p).show()
+# Create FusionNet
+fusion_net = FusionNet(pyr, device, 4)
 
 # Optimizer and Loss
-optimizer = optim.Adam(phase_net.parameters(), lr=1e-3)
+optimizer = optim.Adam(fusion_net.parameters(), lr=1e-3)
 criterion = nn.L1Loss()
 
-vals_r = phase_net(vals_1_2)
+vals_result = fusion_net(vals)
 
 start.record()
 for epoch in range(1):
     optimizer.zero_grad()
 
     # Phase net image
-    vals_r = phase_net(vals_1_2)
-    img_r = pyr.inv_filter(vals_r)
-
-    # Error
-    #loss = calc_loss(img_1, img_2, img_g, pyr, phase_net)
-    #loss.backward()
+    vals_result = fusion_net(vals)
+    img_r = pyr.inv_filter(vals_result)
 
     optimizer.step()
-    #print(f'Epoch {epoch}  Loss {loss.item()}')
+
 end.record()
 torch.cuda.synchronize()
 
-print('PhaseNet Time:', start.elapsed_time(end)/1000, 'sec')
+print('Fusion Time:', start.elapsed_time(end)/1000, 'sec')
 
-vals_r = phase_net(vals)
-
-img_r = pyr.inv_filter(vals_r)
+img_result = pyr.inv_filter(vals_result)
 img_p = img_r.detach().cpu()
-transforms.ToPILImage()(img_p).show()
+# transforms.ToPILImage()(img_p).show()

@@ -1,8 +1,8 @@
 import torch
-import cupy_module.adacof as adacof
+import src.adacof.cupy_module.adacof as adacof
 import sys
 from torch.nn import functional as F
-from utility import CharbonnierFunc, moduleNormalize
+from src.adacof.utility import CharbonnierFunc, moduleNormalize
 
 
 def make_model(args):
@@ -194,28 +194,3 @@ class AdaCoFNet(torch.nn.Module):
         tensorAdaCoF2 = self.moduleAdaCoF(self.modulePad(frame2), Weight2, Alpha2, Beta2, self.dilation)
 
         return tensorAdaCoF1, tensorAdaCoF2
-
-        '''frame1 = Occlusion * tensorAdaCoF1 + (1 - Occlusion) * tensorAdaCoF2
-        if h_padded:
-            frame1 = frame1[:, :, 0:h0, :]
-        if w_padded:
-            frame1 = frame1[:, :, :, 0:w0]
-
-        if self.training:
-            # Smoothness Terms
-            m_Alpha1 = torch.mean(Weight1 * Alpha1, dim=1, keepdim=True)
-            m_Alpha2 = torch.mean(Weight2 * Alpha2, dim=1, keepdim=True)
-            m_Beta1 = torch.mean(Weight1 * Beta1, dim=1, keepdim=True)
-            m_Beta2 = torch.mean(Weight2 * Beta2, dim=1, keepdim=True)
-
-            g_Alpha1 = CharbonnierFunc(m_Alpha1[:, :, :, :-1] - m_Alpha1[:, :, :, 1:]) + CharbonnierFunc(m_Alpha1[:, :, :-1, :] - m_Alpha1[:, :, 1:, :])
-            g_Beta1 = CharbonnierFunc(m_Beta1[:, :, :, :-1] - m_Beta1[:, :, :, 1:]) + CharbonnierFunc(m_Beta1[:, :, :-1, :] - m_Beta1[:, :, 1:, :])
-            g_Alpha2 = CharbonnierFunc(m_Alpha2[:, :, :, :-1] - m_Alpha2[:, :, :, 1:]) + CharbonnierFunc(m_Alpha2[:, :, :-1, :] - m_Alpha2[:, :, 1:, :])
-            g_Beta2 = CharbonnierFunc(m_Beta2[:, :, :, :-1] - m_Beta2[:, :, :, 1:]) + CharbonnierFunc(m_Beta2[:, :, :-1, :] - m_Beta2[:, :, 1:, :])
-            g_Occlusion = CharbonnierFunc(Occlusion[:, :, :, :-1] - Occlusion[:, :, :, 1:]) + CharbonnierFunc(Occlusion[:, :, :-1, :] - Occlusion[:, :, 1:, :])
-
-            g_Spatial = g_Alpha1 + g_Beta1 + g_Alpha2 + g_Beta2
-
-            return {'frame1': frame1, 'g_Spatial': g_Spatial, 'g_Occlusion': g_Occlusion}
-        else:
-            return frame1'''

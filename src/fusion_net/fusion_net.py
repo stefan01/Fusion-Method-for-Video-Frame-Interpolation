@@ -15,11 +15,12 @@ DecompValues = namedtuple(
 )
 
 class FusionNet(nn.Module):
-    def __init__(self, pyr, device):
-        super(PhaseNet, self).__init__()
+    def __init__(self, pyr, device, img_num=4):
+        super(FusionNet, self).__init__()
         self.pyr = pyr
         self.height = pyr.height
         self.device = device
+        self.img_num = img_num
         self.layers = self.create_architecture()
         self.to(self.device)
         self.eps = 1e-8
@@ -27,10 +28,10 @@ class FusionNet(nn.Module):
     def create_architecture(self):
         """ Create phase net architecture. """
         return nn.ModuleList([
-            PhaseNetBlock(2, 64, 1, (1, 1), self.device),
-            PhaseNetBlock(64 + 1 + 16, 64, 8, (1, 1), self.device),
-            PhaseNetBlock(64 + 8 + 16, 64, 8, (1, 1), self.device),
-            *[PhaseNetBlock(64 + 8 + 16, 64, 8, (3 ,3), self.device) for _ in range(self.height-4)]
+            PhaseNetBlock(self.img_num, 64, 1, (1, 1), self.device),
+            PhaseNetBlock(64 + 1 + 8 * self.img_num, 64, 8, (1, 1), self.device),
+            PhaseNetBlock(64 + 8 + 8 * self.img_num, 64, 8, (1, 1), self.device),
+            *[PhaseNetBlock(64 + 8 + 8 * self.img_num, 64, 8, (3 ,3), self.device) for _ in range(8)]
         ])
 
     def set_layers(self, start, end, freeze=True):
@@ -85,6 +86,11 @@ class FusionNet(nn.Module):
 
             amplitudes.append((vals.amplitude[i].reshape(batch_size, -1).permute(1, 0) * max_ampl).permute(1, 0).reshape(amp_shape))
 
+        print("IN NET")
+        print(len(amplitudes))
+        print(amplitudes[0])
+        print("#" * 10)
+
         for _ in range(self.height-2-m):
             phases.append(0)
             amplitudes.append(0)
@@ -102,6 +108,7 @@ class FusionNet(nn.Module):
             )
 
     def forward(self, vals, m=0):
+        m = self.height-2
         vals = self.normalize_vals(vals)
 
         # Get output of first phase-net block
@@ -130,6 +137,11 @@ class FusionNet(nn.Module):
             res1, res2 = prediction.shape[2:]
             phase.append(prediction[:, :4, :, :].reshape(-1, 1, res1, res2))
             amplitude.append(prediction[:, 4:, :, :].reshape(-1, 1, res1, res2))
+
+        print("IN NET")
+        print(len(amplitude))
+        print(amplitude[0].shape)
+        print("#" * 10)
 
         # Use torch.zeros with right shape, mean of both input high levels (test both) Flow levels of AdaCof
         hl_shape = vals.high_level.shape

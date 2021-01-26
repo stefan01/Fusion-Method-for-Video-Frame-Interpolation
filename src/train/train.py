@@ -1,18 +1,19 @@
 # With changes from https://github.com/HyeongminLEE/AdaCoF-pytorch/blob/master/train.py
 
-from datareader import DBreader_Vimeo90k
+from src.train.datareader import DBreader_Vimeo90k
 from torch.utils.data import DataLoader
 import argparse
 import torch
-from trainer import Trainer
+from src.train.trainer import Trainer
 import datetime
-from phase_net import PhaseNet
 from steerable.SCFpyr_PyTorch import SCFpyr_PyTorch
 import steerable.utils as utils
 import torchvision.transforms as transforms
-from pyramid import Pyramid
+from src.train.pyramid import Pyramid
 import numpy as np
 import random
+
+from src.phase_net.phase_net import PhaseNet
 
 parser = argparse.ArgumentParser(description='PhaseNet-Pytorch')
 
@@ -26,15 +27,17 @@ parser.add_argument('--out_dir', type=str, default='./output_phase_net_train')
 parser.add_argument('--load', type=str, default=None)
 
 # Learning Options
-parser.add_argument('--epochs', type=int, default=10, help='Max Epochs')
-parser.add_argument('--batch_size', type=int, default=1, help='Batch size')
-parser.add_argument('--seed', type=int, default=1, help='Seed')
-parser.add_argument('--m', type=int, default=None, help='Layers to train from 0 to m')
+parser.add_argument('--epochs', type=int, default=10, help='max epochs')
+parser.add_argument('--batch_size', type=int, default=1, help='batch size')
+parser.add_argument('--seed', type=int, default=1, help='seed')
+parser.add_argument('--m', type=int, default=None, help='layers to train from 0 to m')
 
 # Optimization specifications
 parser.add_argument('--lr', type=float, default=1e-3, help='learning rate')
 parser.add_argument('--lr_decay', type=int, default=0, help='learning rate decay per N epochs')
 parser.add_argument('--weight_decay', type=float, default=0, help='weight decay')
+
+parser.add_argument('--mode', type=str, default='phasenet', help='phasenet or fusion')
 
 transform = transforms.Compose([transforms.ToTensor()])
 
@@ -63,12 +66,12 @@ def main():
     )
 
     # PhaseNet
-    model = PhaseNet(pyr, device)
+    model = PhaseNet(pyr, device) if args.mode == 'phasenet' else PhaseNet(pyr, device, 4)
     m = 10
-    model.set_layers(0, 5, freeze=True)
-    if args.m is not None:
-        m = args.m
-        model.set_layers(0, m, freeze=True)
+    #model.set_layers(0, 5, freeze=True)
+    #if args.m is not None:
+        #m = args.m
+        #model.set_layers(0, m, freeze=True)
         #model.set_layers(m+1, 9, freeze=True)
 
     # Load model if given
