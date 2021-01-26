@@ -71,6 +71,22 @@ def interpolate_phasenet(a, b, output):
         ))
     torch.cuda.empty_cache()
 
+def interpolate_fusion(a, b, output):
+    print('Interpolating {} and {} to {} with fusion method'.format(a, b, output))
+    with torch.no_grad():
+        adacof_interp.interp(SimpleNamespace(
+            gpu_id=1,
+            model='src.adacof.models.adacofnet',
+            kernel_size=5,
+            dilation=1,
+            first_frame=a,
+            second_frame=b,
+            output_frame=output,
+            checkpoint='src/adacof/checkpoint/kernelsize_5/ckpt.pth',
+            config='src/adacof/checkpoint/kernelsize_5/config.txt'
+        ))
+    torch.cuda.empty_cache()
+
 # Interpolates triples of images
 # from a dataset (list of filenames)
 def interpolate_dataset(dataset_path):
@@ -85,14 +101,17 @@ def interpolate_dataset(dataset_path):
         interpolated_filename = os.path.basename(dataset[i+1])
         output_path_adacof = '{}/{}/adacof/{}'.format(tmp_dir, dataset_name, interpolated_filename)
         output_path_phasenet = '{}/{}/phasenet/{}'.format(tmp_dir, dataset_name, interpolated_filename)
+        output_path_fusion = '{}/{}/fusion/{}'.format(tmp_dir, dataset_name, interpolated_filename)
 
         # Create output folders if they don't exist yet
         os.makedirs('{}/{}/adacof'.format(tmp_dir, dataset_name), exist_ok=True)
         os.makedirs('{}/{}/phasenet'.format(tmp_dir, dataset_name), exist_ok=True)
+        os.makedirs('{}/{}/fusion'.format(tmp_dir, dataset_name), exist_ok=True)
 
         # Interpolate
         interpolate_adacof(dataset[i], dataset[i+2], output_path_adacof)
         interpolate_phasenet(dataset[i], dataset[i+2], output_path_phasenet)
+        interpolate_fusion(dataset[i], dataset[i+2], output_path_fusion)
 
 # Evaluates a dataset.
 # Takes interpolated images a and c
@@ -101,6 +120,7 @@ def evaluate_dataset(dataset_path):
     print('Evaluating Dataset ', dataset_path)
     prediction_folder_adacof = sorted(glob.glob('{}/{}/adacof/*.png'.format(tmp_dir, dataset_path)))
     prediction_folder_phasenet = sorted(glob.glob('{}/{}/phasenet/*.png'.format(tmp_dir, dataset_path)))
+    prediction_folder_fusion = sorted(glob.glob('{}/{}/fusion/*.png'.format(tmp_dir, dataset_path)))
     target_folder = sorted(glob.glob('Testset/{}/*.png'.format(dataset_path)))
 
     output_path = os.path.dirname(os.path.dirname(dataset_path)) + "visual_result"
@@ -115,17 +135,20 @@ def evaluate_dataset(dataset_path):
         # Load Images
         image_prediction_adacof = Image.open(prediction_folder_adacof[i])
         image_prediction_phasenet = Image.open(prediction_folder_phasenet[i])
+        image_prediction_fusion = Image.open(prediction_folder_fusion[i])
         image_target = Image.open(target_folder[i])
 
         tensor_prediction_adacof = TF.to_tensor(image_prediction_adacof)
         tensor_prediction_phasenet = TF.to_tensor(image_prediction_phasenet)
+        tensor_prediction_fusion = TF.to_tensor(image_prediction_fusion)
         tensor_target = TF.to_tensor(image_target)
 
         # Evaluate
         eval_result_adacof = evaluate_image(tensor_prediction_adacof, tensor_target)
         eval_result_phasenet = evaluate_image(tensor_prediction_phasenet, tensor_target)
+        eval_result_fusion = evaluate_image(tensor_prediction_fusion, tensor_target)
 
-        eval_results.append(np.stack((eval_result_adacof, eval_result_phasenet)))
+        eval_results.append(np.stack((eval_result_adacof, eval_result_phasenet, eval_result_fusion)))
     
     return eval_results
 
@@ -142,10 +165,12 @@ def create_images(testset, test_path, inter_path):
         ground_truth = [test_path + i + "/" + filename for filename in os.listdir(test_path + "/" + i)][1:-1]
         inter_image_adacof = [inter_path + i + "/adacof/" + interpolate for interpolate in os.listdir(inter_path + "/" + i + "/adacof")]
         inter_image_phasenet = [inter_path + i + "/phasenet/" + interpolate for interpolate in os.listdir(inter_path + "/" + i + "/phasenet")]
+        inter_image_fusion = [inter_path + i + "/fusion/" + interpolate for interpolate in os.listdir(inter_path + "/" + i + "/fusion")]
         error = np.load("Evaluation/result_" + i + ".npy")[:, 0, :]
         for image_idx in range(len(inter_image_adacof) - 1): # TODO: Could be that error is missing one entry?
             draw_difference(np.asarray(Image.open(inter_image_adacof[image_idx])),
                             np.asarray(Image.open(inter_image_phasenet[image_idx])),
+                            np.asarray(Image.open(inter_image_fusion[image_idx])),
                             np.asarray(Image.open(ground_truth[image_idx])),
                             out, error[image_idx], image_idx)
         
@@ -155,7 +180,7 @@ def create_images(testset, test_path, inter_path):
         images_to_video(input_images, '{}/result.avi'.format(out), framerate=10)
 
 
-def draw_difference(pred_img_adacof, pred_img_phasenet, target_img, out_path, error, number):
+def draw_difference(pred_img_adacof, pred_img_phasenet, pred_img_fusion, target_img, out_path, error, number):
     name = 'img_{}_{}.png'.format(str(number).zfill(3), error[0])
 
     if os.path.exists(out_path + "/" + name):
@@ -163,33 +188,45 @@ def draw_difference(pred_img_adacof, pred_img_phasenet, target_img, out_path, er
 
     difference_adacof = np.average(np.abs(target_img - pred_img_adacof), axis=2)
     difference_phasenet = np.average(np.abs(target_img - pred_img_phasenet), axis=2)
+    difference_fusion = np.average(np.abs(target_img - pred_img_fusion), axis=2)
     
-    plt.subplot(2, 3, 1)
-    plt.imshow(pred_img_adacof)
-    plt.axis('off')
-    plt.title('Predicted Image')
-
-    plt.subplot(2, 3, 2)
+    plt.subplot(3, 1, 1)
     plt.imshow(target_img)
     plt.axis('off')
     plt.title('Target Image')
 
-    plt.subplot(2, 3, 3)
+    plt.subplot(3, 3, 4)
+    plt.imshow(pred_img_adacof)
+    plt.axis('off')
+    plt.title('AdaCoF Image')
+
+    plt.subplot(3, 3, 5)
+    plt.imshow(pred_img_fusion)
+    plt.axis('off')
+    plt.title('Fusion Image')
+
+    plt.subplot(3, 3, 6)
     plt.imshow(pred_img_phasenet)
     plt.axis('off')
-    plt.title('Predicted Image')
+    plt.title('Phasenet Image')
 
-    plt.subplot(2, 2, 3)
+    plt.subplot(3, 3, 7)
     plt.imshow(difference_adacof, interpolation='none', cmap='plasma', vmin=0, vmax=255)
     plt.axis('off')
     plt.colorbar()
-    plt.title('Difference AdaCoF')
+    plt.title('AdaCoF Difference')
 
-    plt.subplot(2, 2, 4)
+    plt.subplot(3, 3, 8)
+    plt.imshow(difference_fusion, interpolation='none', cmap='plasma', vmin=0, vmax=255)
+    plt.axis('off')
+    plt.colorbar()
+    plt.title('Fusion Difference')
+
+    plt.subplot(3, 3, 9)
     plt.imshow(difference_phasenet, interpolation='none', cmap='plasma', vmin=0, vmax=255)
     plt.axis('off')
     plt.colorbar()
-    plt.title('Difference Phasenet')
+    plt.title('Phasenet Difference')
 
     plt.savefig(out_path + "/" + name, dpi=600)
     plt.clf()
