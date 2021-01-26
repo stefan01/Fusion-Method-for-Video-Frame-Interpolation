@@ -341,5 +341,7 @@ create_images(testsets, testset_path, interpolate_path)
 # Show Results
 results_adacof = [r[0] for r in results_np]
 results_phasenet = [r[1] for r in results_np]
+results_fusion = [r[2] for r in results_np]
 draw_measurements(testsets, results_adacof, 'AdaCoF')
 draw_measurements(testsets, results_phasenet, 'Phasenet')
+draw_measurements(testsets, results_fusion, 'Fusion')
