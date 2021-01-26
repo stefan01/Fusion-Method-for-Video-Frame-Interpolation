@@ -32,20 +32,22 @@ def evaluate_image(prediction, target):
 # using adacof and saves the result at output
 def interpolate_adacof(a, b, output):
     print('Interpolating {} and {} to {} with adacof'.format(a, b, output))
-    adacof_interp.interp(SimpleNamespace(
-        gpu_id=0,
-        model='src.adacof.models.adacofnet',
-        kernel_size=5,
-        dilation=1,
-        first_frame=a,
-        second_frame=b,
-        output_frame=output,
-        checkpoint='src/adacof/checkpoint/kernelsize_5/ckpt.pth',
-        config='src/adacof/checkpoint/kernelsize_5/config.txt'
-    ))
+    with torch.no_grad():
+        adacof_interp.interp(SimpleNamespace(
+            gpu_id=1,
+            model='src.adacof.models.adacofnet',
+            kernel_size=5,
+            dilation=1,
+            first_frame=a,
+            second_frame=b,
+            output_frame=output,
+            checkpoint='src/adacof/checkpoint/kernelsize_5/ckpt.pth',
+            config='src/adacof/checkpoint/kernelsize_5/config.txt'
+        ))
+    torch.cuda.empty_cache()
     '''subprocess.run([
         sys.executable,
-        '../src/adacof/interpolate_twoframe.py',
+        'src/adacof/interpolate_twoframe.py',
         '--first_frame', a,
         '--second_frame', b,
         '--output_frame', output,
@@ -55,17 +57,19 @@ def interpolate_adacof(a, b, output):
 
 def interpolate_phasenet(a, b, output):
     print('Interpolating {} and {} to {} with phasenet'.format(a, b, output))
-    adacof_interp.interp(SimpleNamespace(
-        gpu_id=0,
-        model='src.adacof.models.adacofnet',
-        kernel_size=5,
-        dilation=1,
-        first_frame=a,
-        second_frame=b,
-        output_frame=output,
-        checkpoint='src/adacof/checkpoint/kernelsize_5/ckpt.pth',
-        config='src/adacof/checkpoint/kernelsize_5/config.txt'
-    ))
+    with torch.no_grad():
+        adacof_interp.interp(SimpleNamespace(
+            gpu_id=1,
+            model='src.adacof.models.adacofnet',
+            kernel_size=5,
+            dilation=1,
+            first_frame=a,
+            second_frame=b,
+            output_frame=output,
+            checkpoint='src/adacof/checkpoint/kernelsize_5/ckpt.pth',
+            config='src/adacof/checkpoint/kernelsize_5/config.txt'
+        ))
+    torch.cuda.empty_cache()
 
 # Interpolates triples of images
 # from a dataset (list of filenames)
@@ -121,8 +125,8 @@ def evaluate_dataset(dataset_path):
         eval_result_adacof = evaluate_image(tensor_prediction_adacof, tensor_target)
         eval_result_phasenet = evaluate_image(tensor_prediction_phasenet, tensor_target)
 
-        eval_results.append(np.stack(eval_result_adacof, eval_result_phasenet))
-
+        eval_results.append(np.stack((eval_result_adacof, eval_result_phasenet)))
+    
     return eval_results
 
 
