@@ -2,14 +2,14 @@ import argparse
 from PIL import Image
 import torch
 from torchvision import transforms
-import models
+from src.adacof.models import Model
 from torchvision.utils import save_image as imwrite
 from torch.autograd import Variable
 
 parser = argparse.ArgumentParser(description='Two-frame Interpolation')
 
 parser.add_argument('--gpu_id', type=int, default=0)
-parser.add_argument('--model', type=str, default='adacofnet')
+parser.add_argument('--model', type=str, default='src.adacof.models.adacofnet')
 parser.add_argument('--checkpoint', type=str, default='./checkpoint/kernelsize_5/ckpt.pth')
 parser.add_argument('--config', type=str, default='./checkpoint/kernelsize_5/config.txt')
 
@@ -30,7 +30,9 @@ def to_variable(x):
 
 
 def main():
-    args = parser.parse_args()
+    interp(parser.parse_args())
+
+def interp(args):
     torch.cuda.set_device(args.gpu_id)
 
     config_file = open(args.config, 'r')
@@ -50,7 +52,7 @@ def main():
                 args.dilation = int(tmp_list[1])
     config_file.close()
 
-    model = models.Model(args)
+    model = Model(args)
 
     checkpoint = torch.load(args.checkpoint, map_location=torch.device('cpu'))
     model.load(checkpoint['state_dict'])

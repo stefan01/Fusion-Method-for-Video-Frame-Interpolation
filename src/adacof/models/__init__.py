@@ -5,7 +5,7 @@ from importlib import import_module
 class Model(nn.Module):
     def __init__(self, args):
         super(Model, self).__init__()
-        module = import_module('models.' + args.model.lower())
+        module = import_module(args.model.lower())
         self.model = module.make_model(args)
 
     def forward(self, frame0, frame1):

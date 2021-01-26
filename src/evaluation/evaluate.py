@@ -9,8 +9,11 @@ from piq import ssim, LPIPS, psnr
 from PIL import Image
 import matplotlib.pyplot as plt
 import numpy as np
+from types import SimpleNamespace
 
-tmp_dir = 'tmp'
+import src.adacof.interpolate_twoframe as adacof_interp
+
+tmp_dir = 'Evaluation/tmp'
 os.makedirs(tmp_dir, exist_ok=True)
 
 #prediction = torch.rand(4, 3, 256, 256, requires_grad=True)
@@ -26,17 +29,43 @@ def evaluate_image(prediction, target):
     return np.array([ssim_measure.numpy(), lpips_measure.numpy(), psnr_measure.numpy()])
 
 # Interpolates image a and b (file paths)
-# and saves the result at output
-def interpolate(a, b, output):
-    print('Interpolating {} and {} to {}'.format(a, b, output))
-    subprocess.run([
+# using adacof and saves the result at output
+def interpolate_adacof(a, b, output):
+    print('Interpolating {} and {} to {} with adacof'.format(a, b, output))
+    adacof_interp.interp(SimpleNamespace(
+        gpu_id=0,
+        model='src.adacof.models.adacofnet',
+        kernel_size=5,
+        dilation=1,
+        first_frame=a,
+        second_frame=b,
+        output_frame=output,
+        checkpoint='src/adacof/checkpoint/kernelsize_5/ckpt.pth',
+        config='src/adacof/checkpoint/kernelsize_5/config.txt'
+    ))
+    '''subprocess.run([
         sys.executable,
-        '../AdaCoF/interpolate_twoframe.py',
+        '../src/adacof/interpolate_twoframe.py',
         '--first_frame', a,
         '--second_frame', b,
         '--output_frame', output,
-        '--checkpoint', '../AdaCoF/checkpoint/kernelsize_5/ckpt.pth',
-        '--config', '../AdaCoF/checkpoint/kernelsize_5/config.txt'])
+        '--checkpoint', 'src/adacof/checkpoint/kernelsize_5/ckpt.pth',
+        '--config', 'src/adacof/checkpoint/kernelsize_5/config.txt'])'''
+    
+
+def interpolate_phasenet(a, b, output):
+    print('Interpolating {} and {} to {} with phasenet'.format(a, b, output))
+    adacof_interp.interp(SimpleNamespace(
+        gpu_id=0,
+        model='src.adacof.models.adacofnet',
+        kernel_size=5,
+        dilation=1,
+        first_frame=a,
+        second_frame=b,
+        output_frame=output,
+        checkpoint='src/adacof/checkpoint/kernelsize_5/ckpt.pth',
+        config='src/adacof/checkpoint/kernelsize_5/config.txt'
+    ))
 
 # Interpolates triples of images
 # from a dataset (list of filenames)
@@ -50,22 +79,25 @@ def interpolate_dataset(dataset_path):
     print(dataset_path)
     for i in tqdm(iterable=it, total=len(it)):
         interpolated_filename = os.path.basename(dataset[i+1])
-        output_path = '{}/{}/{}'.format(tmp_dir, dataset_name, interpolated_filename)
-        os.makedirs('{}/{}'.format(tmp_dir, dataset_name), exist_ok=True)
-        interpolate(dataset[i], dataset[i+2], output_path)
+        output_path_adacof = '{}/{}/adacof/{}'.format(tmp_dir, dataset_name, interpolated_filename)
+        output_path_phasenet = '{}/{}/phasenet/{}'.format(tmp_dir, dataset_name, interpolated_filename)
+
+        # Create output folders if they don't exist yet
+        os.makedirs('{}/{}/adacof'.format(tmp_dir, dataset_name), exist_ok=True)
+        os.makedirs('{}/{}/phasenet'.format(tmp_dir, dataset_name), exist_ok=True)
+
+        # Interpolate
+        interpolate_adacof(dataset[i], dataset[i+2], output_path_adacof)
+        interpolate_phasenet(dataset[i], dataset[i+2], output_path_phasenet)
 
 # Evaluates a dataset.
 # Takes interpolated images a and c
 # and compares the result with b
 def evaluate_dataset(dataset_path):
     print('Evaluating Dataset ', dataset_path)
-    prediction_folder = sorted(glob.glob('{}/{}/*.png'.format(tmp_dir, dataset_path)))
-    if not prediction_folder:
-        prediction_folder = sorted(glob.glob('{}/{}/*.jpg'.format(tmp_dir, dataset_path)))
-
-    target_folder = sorted(glob.glob('../Testset/{}/*.png'.format(dataset_path)))
-    if not target_folder:
-        target_folder = sorted(glob.glob('../Testset/{}/*.jpg'.format(dataset_path)))
+    prediction_folder_adacof = sorted(glob.glob('{}/{}/adacof/*.png'.format(tmp_dir, dataset_path)))
+    prediction_folder_phasenet = sorted(glob.glob('{}/{}/phasenet/*.png'.format(tmp_dir, dataset_path)))
+    target_folder = sorted(glob.glob('Testset/{}/*.png'.format(dataset_path)))
 
     output_path = os.path.dirname(os.path.dirname(dataset_path)) + "visual_result"
     if not os.path.exists(output_path):
@@ -73,39 +105,43 @@ def evaluate_dataset(dataset_path):
 
     eval_results = []
 
-    it = range(1, len(prediction_folder)) 
+    it = range(1, len(prediction_folder_adacof)) 
 
     for i in tqdm(iterable=it, total=len(it)):
         # Load Images
-        image_prediction = Image.open(prediction_folder[i])
+        image_prediction_adacof = Image.open(prediction_folder_adacof[i])
+        image_prediction_phasenet = Image.open(prediction_folder_phasenet[i])
         image_target = Image.open(target_folder[i])
 
-        tensor_prediction = TF.to_tensor(image_prediction)
+        tensor_prediction_adacof = TF.to_tensor(image_prediction_adacof)
+        tensor_prediction_phasenet = TF.to_tensor(image_prediction_phasenet)
         tensor_target = TF.to_tensor(image_target)
 
         # Evaluate
-        eval_result = evaluate_image(tensor_prediction, tensor_target)
-        eval_results.append(eval_result)
+        eval_result_adacof = evaluate_image(tensor_prediction_adacof, tensor_target)
+        eval_result_phasenet = evaluate_image(tensor_prediction_phasenet, tensor_target)
 
-        # draw images
-        #draw_difference(prediction_folder[i], target_folder[i], output_path, eval_result[0], i)
+        eval_results.append(np.stack(eval_result_adacof, eval_result_phasenet))
 
     return eval_results
 
 
 def create_images(testset, test_path, inter_path):
-    if not os.path.exists('visual_result'):
-        os.makedirs('visual_result')
+    if not os.path.exists('Evaluation/visual_result'):
+        os.makedirs('Evaluation/visual_result')
+
     for idx, i in enumerate(testset):
         print('Evaluating {}'.format(i))
-        out = 'visual_result/' + i
+        out = 'Evaluation/visual_result/' + i
         if not os.path.exists(out):
             os.makedirs(out)
-        ground_truth = sorted([test_path + i + "/" + filename for filename in os.listdir(test_path + "/" + i)])[1:-1]
-        inter_image = sorted([inter_path + i + "/" + interpolate for interpolate in os.listdir(inter_path + "/" + i)])
-        error = np.load("result_" + i + ".npy")
-        for image_idx in range(len(inter_image) - 1): # TODO: Could be that error is missing one entry?
-            draw_difference(np.asarray(Image.open(inter_image[image_idx])), 
+        ground_truth = [test_path + i + "/" + filename for filename in os.listdir(test_path + "/" + i)][1:-1]
+        inter_image_adacof = [inter_path + i + "/adacof/" + interpolate for interpolate in os.listdir(inter_path + "/" + i + "/adacof")]
+        inter_image_phasenet = [inter_path + i + "/phasenet/" + interpolate for interpolate in os.listdir(inter_path + "/" + i + "/phasenet")]
+        error = np.load("Evaluation/result_" + i + ".npy")[:, 0, :]
+        for image_idx in range(len(inter_image_adacof) - 1): # TODO: Could be that error is missing one entry?
+            draw_difference(np.asarray(Image.open(inter_image_adacof[image_idx])),
+                            np.asarray(Image.open(inter_image_phasenet[image_idx])),
                             np.asarray(Image.open(ground_truth[image_idx])),
                             out, error[image_idx], image_idx)
         
@@ -115,29 +151,41 @@ def create_images(testset, test_path, inter_path):
         images_to_video(input_images, '{}/result.avi'.format(out), framerate=10)
 
 
-def draw_difference(pred_img, target_img, out_path, error, number):
+def draw_difference(pred_img_adacof, pred_img_phasenet, target_img, out_path, error, number):
     name = 'img_{}_{}.png'.format(str(number).zfill(3), error[0])
 
     if os.path.exists(out_path + "/" + name):
         return
 
-    difference = np.average(np.abs(target_img - pred_img), axis=2)
+    difference_adacof = np.average(np.abs(target_img - pred_img_adacof), axis=2)
+    difference_phasenet = np.average(np.abs(target_img - pred_img_phasenet), axis=2)
     
-    plt.subplot(2, 2, 1)
+    plt.subplot(2, 3, 1)
+    plt.imshow(pred_img_adacof)
+    plt.axis('off')
+    plt.title('Predicted Image')
+
+    plt.subplot(2, 3, 2)
     plt.imshow(target_img)
     plt.axis('off')
     plt.title('Target Image')
 
-    plt.subplot(2, 2, 2)
-    plt.imshow(pred_img)
+    plt.subplot(2, 3, 3)
+    plt.imshow(pred_img_phasenet)
     plt.axis('off')
     plt.title('Predicted Image')
 
-    plt.subplot(2, 1, 2)
-    plt.imshow(difference, interpolation='none', cmap='plasma', vmin=0, vmax=255)
+    plt.subplot(2, 2, 3)
+    plt.imshow(difference_adacof, interpolation='none', cmap='plasma', vmin=0, vmax=255)
     plt.axis('off')
     plt.colorbar()
-    plt.title('Difference Image')
+    plt.title('Difference AdaCoF')
+
+    plt.subplot(2, 2, 4)
+    plt.imshow(difference_phasenet, interpolation='none', cmap='plasma', vmin=0, vmax=255)
+    plt.axis('off')
+    plt.colorbar()
+    plt.title('Difference Phasenet')
 
     plt.savefig(out_path + "/" + name, dpi=600)
     plt.clf()
@@ -158,7 +206,7 @@ def images_to_video(input_images, output_file, framerate=30):
         out.write(img)
     out.release()
 
-def draw_measurements(datasets, datasets_results):
+def draw_measurements(datasets, datasets_results, title):
     avg_data = []
     std_data = []
     min_data = []
@@ -185,6 +233,8 @@ def draw_measurements(datasets, datasets_results):
     y_pos = np.arange(avg_data.shape[0])
 
     legend_order = [1,2,0]
+
+    plt.suptitle(title)
     
     plt.subplot(1, 3, 1)
     plt.errorbar(y_pos, avg_data[:,0], std_data[:,0], fmt='o', label='AVG + STD')
@@ -218,31 +268,34 @@ def draw_measurements(datasets, datasets_results):
 
     plt.show()
 
-testsets = ['Clip1', 'Clip2', 'Clip3', 'Clip4', 'Clip5', 'Clip6', 'Clip7', 'Clip8', 'Clip9', 'Clip10', 'Clip11', \
-    'airboard_1', 'airplane_landing', 'airtable_3', 'basketball_1', 'water_ski_2', 'yoyo']
+#testsets = ['Clip1', 'Clip2', 'Clip3', 'Clip4', 'Clip5', 'Clip6', 'Clip7', 'Clip8', 'Clip9', 'Clip10', 'Clip11', \
+#    'airboard_1', 'airplane_landing', 'airtable_3', 'basketball_1', 'water_ski_2', 'yoyo']
+
+testsets = ['Clip1']
 
 # Interpolate
 for testset in testsets:
     if not os.path.isdir('{}/{}'.format(tmp_dir, testset)):
-        testset_path = '../Testset/{}'.format(testset)
+        testset_path = 'Testset/{}'.format(testset)
         interpolate_dataset(testset_path)
 
 # Evaluate Results
 results_np = []
 for testset in testsets:
-    result_path = 'result_{}.npy'.format(testset)
+    result_path = 'Evaluation/result_{}.npy'.format(testset)
     if os.path.exists(result_path):
         result_np = np.load(result_path)
     else:
         result = evaluate_dataset(testset)
         print('Result for {}: {}'.format(testset, result))
         result_np = np.array(result)
-        np.save('result_{}.npy'.format(testset), result_np)
+        np.save('Evaluation/result_{}.npy'.format(testset), result_np)
     results_np.append(result_np)
 
-testset_path = '../Testset/'
-interpolate_path = 'tmp/'
-#create_images(testsets, testset_path, interpolate_path)
+testset_path = 'Testset/'
+interpolate_path = 'Evaluation/tmp/'
+create_images(testsets, testset_path, interpolate_path)
 
 # Show Results
-draw_measurements(testsets, results_np)
+draw_measurements(testsets, results_np[:, 0, :], 'AdaCoF')
+draw_measurements(testsets, results_np[:, 1, :], 'Phasenet')
