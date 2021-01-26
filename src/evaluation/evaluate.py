@@ -270,7 +270,8 @@ def draw_measurements(datasets, datasets_results, title):
     handles, labels = plt.gca().get_legend_handles_labels()
     plt.legend([handles[idx] for idx in legend_order],[labels[idx] for idx in legend_order])
 
-    plt.show()
+    plt.savefig('Evaluation/results_{}.png'.format(title), dpi=600)
+    #plt.show()
 
 #testsets = ['Clip1', 'Clip2', 'Clip3', 'Clip4', 'Clip5', 'Clip6', 'Clip7', 'Clip8', 'Clip9', 'Clip10', 'Clip11', \
 #    'airboard_1', 'airplane_landing', 'airtable_3', 'basketball_1', 'water_ski_2', 'yoyo']
@@ -301,5 +302,7 @@ interpolate_path = 'Evaluation/tmp/'
 create_images(testsets, testset_path, interpolate_path)
 
 # Show Results
-draw_measurements(testsets, results_np[:, 0, :], 'AdaCoF')
-draw_measurements(testsets, results_np[:, 1, :], 'Phasenet')
+results_adacof = [r[0] for r in results_np]
+results_phasenet = [r[1] for r in results_np]
+draw_measurements(testsets, results_adacof, 'AdaCoF')
+draw_measurements(testsets, results_phasenet, 'Phasenet')
