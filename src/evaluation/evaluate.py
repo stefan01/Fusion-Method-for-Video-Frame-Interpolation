@@ -13,6 +13,7 @@ from types import SimpleNamespace
 
 import src.adacof.interpolate_twoframe as adacof_interp
 import src.phase_net.interpolate_twoframe as phasenet_interp
+import src.fusion_net.interpolate_twoframe as fusion_interp
 
 
 tmp_dir = 'Evaluation/tmp'
@@ -57,23 +58,24 @@ def interpolate_phasenet(a, b, output):
             first_frame=a,
             second_frame=b,
             output_frame=output,
-            checkpoint='./src/phase_net/phase_net.pt',
+            checkpoint='src/phase_net/phase_net.pt',
         ))
     torch.cuda.empty_cache()
 
 def interpolate_fusion(a, b, output):
     print('Interpolating {} and {} to {} with fusion method'.format(a, b, output))
     with torch.no_grad():
-        adacof_interp.interp(SimpleNamespace(
+        fusion_interp.interp(SimpleNamespace(
             gpu_id=1,
-            model='src.adacof.models.adacofnet',
-            kernel_size=5,
-            dilation=1,
+            adacof_model='src.fusion_net.fusion_adacofnet',
+            adacof_kernel_size=5,
+            adacof_dilation=1,
             first_frame=a,
             second_frame=b,
             output_frame=output,
-            checkpoint='src/adacof/checkpoint/kernelsize_5/ckpt.pth',
-            config='src/adacof/checkpoint/kernelsize_5/config.txt'
+            adacof_checkpoint='src/adacof/checkpoint/kernelsize_5/ckpt.pth',
+            adacof_config='src/adacof/checkpoint/kernelsize_5/config.txt',
+            checkpoint='src/phase_net/phase_net.pt'
         ))
     torch.cuda.empty_cache()
 

@@ -12,7 +12,9 @@ import numpy as np
 import torch
 from collections import namedtuple
 from PIL import Image
-from src.phase_net.phase_net import PhaseNet
+from src.adacof.models import Model
+from src.fusion_net.fusion_net import FusionNet
+from types import SimpleNamespace
 
 parser = argparse.ArgumentParser(description='Two-frame Interpolation')
 
@@ -31,6 +33,11 @@ parser.add_argument('--second_frame', type=str, default='./sample_twoframe/1.png
 parser.add_argument('--output_frame', type=str, default='./output.png')
 
 transform = transforms.Compose([transforms.ToTensor()])
+
+def to_variable(x):
+    if torch.cuda.is_available():
+        x = x.cuda()
+    return Variable(x)
 
 def main():
     interp(parser.parse_args())
@@ -55,23 +62,40 @@ def interp(args):
     adacof_model.load(checkpoint['state_dict'])
 
     # Import images
-    img_1 = np.array(Image.open(args.first_frame))
-    img_2 = np.array(Image.open(args.second_frame))
+    raw_img_1 = Image.open(args.first_frame)
+    raw_img_2 = Image.open(args.second_frame)
+    img_1 = np.array(raw_img_1)
+    img_2 = np.array(raw_img_2)
     shape_r = img_1.shape
 
-    with torch.no_grad():
+    '''with torch.no_grad():
         frame_out1, frame_out2 = adacof_model(
             torch.as_tensor(img_1).permute(2, 0, 1).float().unsqueeze(0).to(device)/255,
             torch.as_tensor(img_2).permute(2, 0, 1).float().unsqueeze(0).to(device)/255)
-        frame_out1, frame_out2 = frame_out1.squeeze(0), frame_out2.squeeze(0)
+        frame_out1, frame_out2 = frame_out1.squeeze(0), frame_out2.squeeze(0)'''
+
+    adacof_frame_1 = to_variable(transform(raw_img_1).unsqueeze(0))
+    adacof_frame_2 = to_variable(transform(raw_img_2).unsqueeze(0))
+
+    adacof_img_1, adacof_img_2 = adacof_model(adacof_frame_1, adacof_frame_2)
+    #adacof_img_1 = adacof_img_1.squeeze(0).permute(1, 2, 0)[0:img_1.shape[0], 0:img_1.shape[1]]
+    #adacof_img_2 = adacof_img_2.squeeze(0).permute(1, 2, 0)[0:img_1.shape[0], 0:img_1.shape[1]]
+    adacof_img_1 = adacof_img_1.squeeze(0).permute(1, 2, 0)
+    adacof_img_2 = adacof_img_2.squeeze(0).permute(1, 2, 0)
 
     # Normalize and pad images
+    print(img_1.shape)
+    print(adacof_img_1.shape)
     img_1 = pad_img(img_1/255)
     img_2 = pad_img(img_2/255)
+    img_adacof_1 = pad_img(adacof_img_1.cpu()/255)
+    img_adacof_2 = pad_img(adacof_img_2.cpu()/255)
     
     # To tensors
     img_1 = rgb2lab(torch.as_tensor(img_1).permute(2, 0, 1).float()).to(device)
     img_2 = rgb2lab(torch.as_tensor(img_2).permute(2, 0, 1).float()).to(device)
+    img_adacof_1 = rgb2lab(torch.as_tensor(img_adacof_1).permute(2, 0, 1).float()).to(device)
+    img_adacof_2 = rgb2lab(torch.as_tensor(img_adacof_2).permute(2, 0, 1).float()).to(device)
 
 
     # Build pyramid
@@ -83,9 +107,9 @@ def interp(args):
     )
 
     # Create PhaseNet
-    phase_net = PhaseNet(pyr, device)
-    phase_net.load_state_dict(torch.load(args.checkpoint))
-    phase_net.eval()
+    fusion_net = FusionNet(pyr, device)
+    fusion_net.load_state_dict(torch.load(args.checkpoint))
+    fusion_net.eval()
 
     result = []
 
@@ -94,12 +118,16 @@ def interp(args):
         # Filter images and normalize
         vals_1 = pyr.filter(img_1[c].unsqueeze(0))
         vals_2 = pyr.filter(img_2[c].unsqueeze(0))
-        vals_1_2 = get_concat_layers(pyr, vals_1, vals_2)
+        vals_adacof_1 = pyr.filter(img_adacof_1[c].unsqueeze(0))
+        vals_adacof_2 = pyr.filter(img_adacof_2[c].unsqueeze(0))
+        vals_1_2 = get_concat_layers(pyr, vals_1, vals_2, vals_adacof_1, vals_adacof_2)
         vals_normalized = phase_net.normalize_vals(vals_1_2)
 
         # Delete all old values to free memory
         del vals_1
         del vals_2
+        del vals_adacof_1
+        del vals_adacof_2
         del vals_1_2
         torch.cuda.empty_cache()
 
