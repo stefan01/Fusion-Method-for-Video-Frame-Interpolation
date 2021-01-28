@@ -9,12 +9,26 @@ from src.train.transform import *
 from src.train.pyramid import Pyramid
 import warnings
 import torchvision.transforms as transforms
-
+from types import SimpleNamespace
+from src.adacof.models import Model
 
 # Warnings and device
 warnings.filterwarnings("ignore")
 device = torch.device('cuda:0')
 device_cpu = torch.device('cpu')
+
+# Adacof model
+adacof_args = SimpleNamespace(
+    gpu_id=0,
+    model='src.fusion_net.fusion_adacofnet',
+    kernel_size=5,
+    dilation=1,
+    config='src/adacof/checkpoint/kernelsize_5/config.txt'
+)
+adacof_model = Model(adacof_args)
+adacof_model.eval()
+checkpoint = torch.load('src/adacof/checkpoint/kernelsize_5/ckpt.pth', map_location=torch.device('cpu'))
+adacof_model.load(checkpoint['state_dict'])
 
 # Import images
 img_1 = np.array(Image.open('Testset/Clip1/000.png'))
@@ -22,12 +36,18 @@ img_g = np.array(Image.open('Testset/Clip1/001.png'))
 img_2 = np.array(Image.open('Testset/Clip1/002.png'))
 shape_r = img_1.shape
 
-# Normalize and pad images
-img_1 = pad_img(img_1/255)
-img_g = pad_img(img_g/255)
-img_2 = pad_img(img_2/255)
+with torch.no_grad():
+    frame_out1, frame_out2 = adacof_model(
+        torch.as_tensor(img_1).permute(2, 0, 1).float().unsqueeze(0).to(device)/255,
+        torch.as_tensor(img_2).permute(2, 0, 1).float().unsqueeze(0).to(device)/255)
+    frame_out1, frame_out2 = frame_out1.squeeze(0), frame_out2.squeeze(0)
+    print(img_1.shape, frame_out1.shape)
+    exit()
 
-#Image.fromarray((img_1*255).astype('uint8'), 'RGB').show()
+# Normalize and pad images
+img_1_pad = pad_img(img_1/255)
+img_g_pad = pad_img(img_g/255)
+img_2_pad = pad_img(img_2/255)
 
 # To tensors
 img_1 = rgb2lab(torch.as_tensor(img_1).permute(2, 0, 1).float()).to(device)
