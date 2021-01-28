@@ -42,7 +42,7 @@ def interp(args):
     # Normalize and pad images
     img_1 = pad_img(img_1/255)
     img_2 = pad_img(img_2/255)
-    
+
     # To tensors
     img_1 = rgb2lab(torch.as_tensor(img_1).permute(2, 0, 1).float()).to(device)
     img_2 = rgb2lab(torch.as_tensor(img_2).permute(2, 0, 1).float()).to(device)

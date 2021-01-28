@@ -40,20 +40,25 @@ with torch.no_grad():
     frame_out1, frame_out2 = adacof_model(
         torch.as_tensor(img_1).permute(2, 0, 1).float().unsqueeze(0).to(device)/255,
         torch.as_tensor(img_2).permute(2, 0, 1).float().unsqueeze(0).to(device)/255)
-    frame_out1, frame_out2 = frame_out1.squeeze(0), frame_out2.squeeze(0)
-    print(img_1.shape, frame_out1.shape)
-    exit()
+    frame_out1, frame_out2 = frame_out1.squeeze(0).permute(1, 2, 0).cpu().numpy(), frame_out2.squeeze(0).permute(1, 2, 0).cpu().numpy()
 
 # Normalize and pad images
 img_1_pad = pad_img(img_1/255)
 img_g_pad = pad_img(img_g/255)
 img_2_pad = pad_img(img_2/255)
+frame_out1_pad = pad_img(frame_out1)
+frame_out2_pad = pad_img(frame_out2)
 
 # To tensors
-img_1 = rgb2lab(torch.as_tensor(img_1).permute(2, 0, 1).float()).to(device)
-img_g = rgb2lab(torch.as_tensor(img_g).permute(2, 0, 1).float()).to(device)
-img_2 = rgb2lab(torch.as_tensor(img_2).permute(2, 0, 1).float()).to(device)
+img_1 = rgb2lab(torch.as_tensor(img_1_pad).permute(2, 0, 1).float()).to(device)
+img_g = rgb2lab(torch.as_tensor(img_g_pad).permute(2, 0, 1).float()).to(device)
+img_2 = rgb2lab(torch.as_tensor(img_2_pad).permute(2, 0, 1).float()).to(device)
+frame_1 = torch.as_tensor(frame_out1_pad).permute(2, 0, 1).float().to(device)
+frame_2 = torch.as_tensor(frame_out2_pad).permute(2, 0, 1).float().to(device)
 
+# Show frame
+transforms.ToPILImage()(img_1).show()
+transforms.ToPILImage()(frame_1).show()
 
 # Build pyramid
 pyr = Pyramid(
@@ -63,30 +68,35 @@ pyr = Pyramid(
     device=device,
 )
 
-# Create PhaseNet
-phase_net = PhaseNet(pyr, device)
-phase_net.load_state_dict(torch.load('./src/phase_net/phase_net.pt'))
-phase_net.eval()
+# Create FusionNet
+fusion_net = PhaseNet(pyr, device, num_img=4)
+fusion_net.load_state_dict(torch.load('./src/fusion_net/fusion_net.pt'))
+fusion_net.eval()
 
 result = []
 
 # Predict per channel, so we save memory
 for c in range(3):
-    # Filter images and normalize
-    vals_1 = pyr.filter(img_1[c].unsqueeze(0))
-    vals_2 = pyr.filter(img_2[c].unsqueeze(0))
-    vals_1_2 = get_concat_layers(pyr, vals_1, vals_2)
-    vals_normalized = phase_net.normalize_vals(vals_1_2)
+    imgs = torch.stack((img_1[c], img_2[c], frame_1[c], frame_2[c], img_g[c]), 0)
+    print(imgs.shape)
+
+    # combine images into one big batch and then create the values and separate
+    vals = pyr.filter(imgs)
+    vals_list = separate_vals(vals, 5)
+    vals_t = vals_list[-1]
+    vals_inp = get_concat_layers_inf(pyr, vals_list[:-1])
+    inp = fusion_net.normalize_vals(vals_inp)
 
     # Delete all old values to free memory
-    del vals_1
-    del vals_2
-    del vals_1_2
+    del vals
+    del vals_list
+    del vals_t
+    del vals_inp
     torch.cuda.empty_cache()
 
-    # Predict intermediate frame
+    # predicted intersected image of frame1 and frame2
     with torch.no_grad():
-        vals_r = phase_net(vals_normalized)
+        vals_r = fusion_net(inp)
 
     img_r = pyr.inv_filter(vals_r).detach().cpu()
     result.append(img_r)
