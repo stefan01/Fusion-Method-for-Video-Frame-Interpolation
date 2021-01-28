@@ -12,6 +12,8 @@ import numpy as np
 from types import SimpleNamespace
 
 import src.adacof.interpolate_twoframe as adacof_interp
+import src.phase_net.interpolate_twoframe as phasenet_interp
+
 
 tmp_dir = 'Evaluation/tmp'
 os.makedirs(tmp_dir, exist_ok=True)
@@ -45,29 +47,17 @@ def interpolate_adacof(a, b, output):
             config='src/adacof/checkpoint/kernelsize_5/config.txt'
         ))
     torch.cuda.empty_cache()
-    '''subprocess.run([
-        sys.executable,
-        'src/adacof/interpolate_twoframe.py',
-        '--first_frame', a,
-        '--second_frame', b,
-        '--output_frame', output,
-        '--checkpoint', 'src/adacof/checkpoint/kernelsize_5/ckpt.pth',
-        '--config', 'src/adacof/checkpoint/kernelsize_5/config.txt'])'''
     
 
 def interpolate_phasenet(a, b, output):
     print('Interpolating {} and {} to {} with phasenet'.format(a, b, output))
     with torch.no_grad():
-        adacof_interp.interp(SimpleNamespace(
+        phasenet_interp.interp(SimpleNamespace(
             gpu_id=1,
-            model='src.adacof.models.adacofnet',
-            kernel_size=5,
-            dilation=1,
             first_frame=a,
             second_frame=b,
             output_frame=output,
-            checkpoint='src/adacof/checkpoint/kernelsize_5/ckpt.pth',
-            config='src/adacof/checkpoint/kernelsize_5/config.txt'
+            checkpoint='./src/phase_net/phase_net.pt',
         ))
     torch.cuda.empty_cache()
 
