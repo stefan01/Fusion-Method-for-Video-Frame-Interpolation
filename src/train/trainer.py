@@ -81,14 +81,22 @@ class Trainer:
             heigth = triple[0].shape[2]
             width = triple[0].shape[3]
 
-            # get input data of first and second frame and the corresponding target image
-            frame1 = triple[0].to(self.device).reshape((-1, heigth, width))
-            target = triple[1].to(self.device).reshape((-1, heigth, width))
-            frame2 = triple[2].to(self.device).reshape((-1, heigth, width))
+            frame1 = []
+            target = []
+            frame2 = []
+            for b in range(self.batch_size):
+                frame1.append(rgb2lab(triple[0][b].reshape(-1, heigth, width)))
+                target.append(rgb2lab(triple[1][b].reshape(-1, heigth, width)))
+                frame2.append(rgb2lab(triple[2][b].reshape(-1, heigth, width)))
+            frame1 = torch.cat(frame1, 0).to(self.device)
+            target = torch.cat(target, 0).to(self.device)
+            frame2 = torch.cat(frame2, 0).to(self.device)
 
             if self.args.mode == "fusion":
+                ada_frame1 = triple[0].reshape(-1, heigth, width).to(self.device)
+                ada_frame2 = triple[2].reshape(-1, heigth, width).to(self.device)
                 with torch.no_grad():
-                    frame_out1, frame_out2 = self.adacof_model(frame1.unsqueeze(0), frame2.unsqueeze(0))
+                    frame_out1, frame_out2 = self.adacof_model(ada_frame1.unsqueeze(0), ada_frame2.unsqueeze(0))
                 imgs = torch.cat((frame1, frame2, frame_out1.squeeze(0), frame_out2.squeeze(0), target), 0)
             else:
                 imgs = torch.cat((frame1, frame2, target), 0)
@@ -150,6 +158,9 @@ class Trainer:
         target = TF.to_tensor(transforms.CenterCrop(256)(target))
         frame2 = TF.to_tensor(transforms.CenterCrop(256)(frame2))
 
+        ada_frame1 = frame1.to(self.device)
+        ada_frame2 = frame2.to(self.device)
+
         # Bring images into LAB color space
         frame1 = rgb2lab(frame1).to(self.device)
         target = rgb2lab(target).to(self.device)
@@ -157,7 +168,7 @@ class Trainer:
 
         if self.args.mode == "fusion":
             with torch.no_grad():
-                frame_out1, frame_out2 = self.adacof_model(frame1.unsqueeze(0), frame2.unsqueeze(0))
+                frame_out1, frame_out2 = self.adacof_model(ada_frame1.unsqueeze(0), ada_frame2.unsqueeze(0))
             imgs = torch.cat((frame1, frame2, frame_out1.squeeze(0), frame_out2.squeeze(0), target), 0)
         else:
             imgs = torch.cat((frame1, frame2, target), 0)

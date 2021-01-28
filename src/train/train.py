@@ -27,9 +27,9 @@ parser.add_argument('--out_dir', type=str, default='./output_phase_net_train')
 parser.add_argument('--load', type=str, default=None)
 
 # Learning Options
-parser.add_argument('--epochs', type=int, default=10, help='max epochs')
-parser.add_argument('--batch_size', type=int, default=1, help='batch size')
-parser.add_argument('--seed', type=int, default=1, help='seed')
+parser.add_argument('--epochs', type=int, default=2, help='max epochs')
+parser.add_argument('--batch_size', type=int, default=5, help='batch size')
+parser.add_argument('--seed', type=int, default=0, help='seed')
 parser.add_argument('--m', type=int, default=None, help='layers to train from 0 to m')
 
 # Optimization specifications

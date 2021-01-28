@@ -61,9 +61,9 @@ class DBreader_Vimeo90k(Dataset):
                 rawFrame1 = TF.vflip(rawFrame1)
                 rawFrame2 = TF.vflip(rawFrame2)
 
-        frame0 = rgb2lab(self.transform(rawFrame0))
-        frame1 = rgb2lab(self.transform(rawFrame1))
-        frame2 = rgb2lab(self.transform(rawFrame2))
+        frame0 = self.transform(rawFrame0)
+        frame1 = self.transform(rawFrame1)
+        frame2 = self.transform(rawFrame2)
 
         if self.augment_t:
             if cointoss(0.5):
