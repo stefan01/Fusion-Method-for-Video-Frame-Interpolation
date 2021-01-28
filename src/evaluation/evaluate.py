@@ -75,7 +75,7 @@ def interpolate_fusion(a, b, output):
             output_frame=output,
             adacof_checkpoint='src/adacof/checkpoint/kernelsize_5/ckpt.pth',
             adacof_config='src/adacof/checkpoint/kernelsize_5/config.txt',
-            checkpoint='src/phase_net/phase_net.pt'
+            checkpoint='src/fusion_net/fusion_net.pt'
         ))
     torch.cuda.empty_cache()
 
@@ -154,10 +154,10 @@ def create_images(testset, test_path, inter_path):
         out = 'Evaluation/visual_result/' + i
         if not os.path.exists(out):
             os.makedirs(out)
-        ground_truth = [test_path + i + "/" + filename for filename in os.listdir(test_path + "/" + i)][1:-1]
-        inter_image_adacof = [inter_path + i + "/adacof/" + interpolate for interpolate in os.listdir(inter_path + "/" + i + "/adacof")]
-        inter_image_phasenet = [inter_path + i + "/phasenet/" + interpolate for interpolate in os.listdir(inter_path + "/" + i + "/phasenet")]
-        inter_image_fusion = [inter_path + i + "/fusion/" + interpolate for interpolate in os.listdir(inter_path + "/" + i + "/fusion")]
+        ground_truth = [test_path + i + "/" + filename for filename in sorted(os.listdir(test_path + "/" + i))][1:-1]
+        inter_image_adacof = [inter_path + i + "/adacof/" + interpolate for interpolate in sorted(os.listdir(inter_path + "/" + i + "/adacof"))]
+        inter_image_phasenet = [inter_path + i + "/phasenet/" + interpolate for interpolate in sorted(os.listdir(inter_path + "/" + i + "/phasenet"))]
+        inter_image_fusion = [inter_path + i + "/fusion/" + interpolate for interpolate in sorted(os.listdir(inter_path + "/" + i + "/fusion"))]
         error = np.load("Evaluation/result_" + i + ".npy")[:, 0, :]
         for image_idx in range(len(inter_image_adacof) - 1): # TODO: Could be that error is missing one entry?
             draw_difference(np.asarray(Image.open(inter_image_adacof[image_idx])),
@@ -300,12 +300,14 @@ def draw_measurements(datasets, datasets_results, title):
     plt.legend([handles[idx] for idx in legend_order],[labels[idx] for idx in legend_order])
 
     plt.savefig('Evaluation/results_{}.png'.format(title), dpi=600)
+    plt.clf()
     #plt.show()
 
 #testsets = ['Clip1', 'Clip2', 'Clip3', 'Clip4', 'Clip5', 'Clip6', 'Clip7', 'Clip8', 'Clip9', 'Clip10', 'Clip11', \
 #    'airboard_1', 'airplane_landing', 'airtable_3', 'basketball_1', 'water_ski_2', 'yoyo']
 
-testsets = ['Clip1']
+#testsets = ['Clip1']
+testsets = ['MODE_SH1010']
 
 # Interpolate
 for testset in testsets:

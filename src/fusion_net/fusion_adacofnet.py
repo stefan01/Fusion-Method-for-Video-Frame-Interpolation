@@ -6,7 +6,7 @@ from src.adacof.utility import CharbonnierFunc, moduleNormalize
 
 
 def make_model(args):
-    return AdaCoFNet(args).cuda()
+    return AdaCoFNet(args).to(torch.device('cuda:{}'.format(args.gpu_id)))
 
 
 class KernelEstimation(torch.nn.Module):
