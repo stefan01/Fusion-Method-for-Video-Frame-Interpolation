@@ -5,6 +5,10 @@ from src.train.utils import DecompValues
 import math
 
 class PhaseNet(nn.Module):
+    """
+    Phase Net for Video Frame Interpolation
+    """
+
     def __init__(self, pyr, device, num_img=2):
         super(PhaseNet, self).__init__()
         self.pyr = pyr
@@ -98,22 +102,21 @@ class PhaseNet(nn.Module):
         """ Forward pass through network. """
         m = self.height-2
 
-        # Get output of first phase-net block
+        # Get output of first phase-net block for low level prediction
         feature, prediction = self.layers[0](vals.low_level)
-
-        # Define low_level of output
         low_level = prediction
-
-        # Combined phase, amplitude values
-        phase, amplitude = [], []
 
         # Use zeros for high level prediction
         hl_shape = vals.high_level.shape
         high_level = torch.zeros((hl_shape[0], 1, hl_shape[2], hl_shape[3]), device=self.device)
 
+        # Combined phase, amplitude values
+        phase, amplitude = [], []
+
         for idx in range(m):
             # Resize
             res1, res2 = vals.phase[idx].shape[2:]
+
             # Upsample feature and prediction map to next resolution level
             feature_r = torch.nn.Upsample((res1, res2), mode='bilinear')(feature)
             prediction_r = torch.nn.Upsample((res1, res2), mode='bilinear')(prediction)

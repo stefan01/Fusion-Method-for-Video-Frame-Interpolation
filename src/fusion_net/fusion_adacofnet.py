@@ -193,9 +193,14 @@ class AdaCoFNet(torch.nn.Module):
         tensorAdaCoF1 = self.moduleAdaCoF(self.modulePad(frame0), Weight1, Alpha1, Beta1, self.dilation)
         tensorAdaCoF2 = self.moduleAdaCoF(self.modulePad(frame2), Weight2, Alpha2, Beta2, self.dilation)
 
+        frame1 = Occlusion * tensorAdaCoF1 + (1 - Occlusion) * tensorAdaCoF2
         if h_padded:
             tensorAdaCoF1 = tensorAdaCoF1[:, :, 0:h0, :]
+            tensorAdaCoF2 = tensorAdaCoF2[:, :, 0:h0, :]
+            frame1 = frame1[:, :, 0:h0, :]
         if w_padded:
+            tensorAdaCoF1 = tensorAdaCoF2[:, :, :, 0:w0]
             tensorAdaCoF2 = tensorAdaCoF2[:, :, :, 0:w0]
+            frame1 = frame1[:, :, :, 0:w0]
 
-        return tensorAdaCoF1, tensorAdaCoF2
+        return tensorAdaCoF1, tensorAdaCoF2, frame1

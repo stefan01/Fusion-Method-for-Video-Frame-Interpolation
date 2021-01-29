@@ -47,9 +47,6 @@ class DBreader_Vimeo90k(Dataset):
             rawFrame0 = TF.crop(rawFrame0, i, j, h, w)
             rawFrame1 = TF.crop(rawFrame1, i, j, h, w)
             rawFrame2 = TF.crop(rawFrame2, i, j, h, w)
-            #rawFrame0 = transforms.CenterCrop(256)(rawFrame0)
-            #rawFrame1 = transforms.CenterCrop(256)(rawFrame1)
-            #rawFrame2 = transforms.CenterCrop(256)(rawFrame2)
 
         if self.augment_s:
             if cointoss(0.5):

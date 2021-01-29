@@ -37,7 +37,7 @@ def get_concat_layers(pyr, vals1, vals2):
         )
 
 def get_concat_layers_inf(pyr, vals_list):
-    """ Combines values and transforms them so the PhaseNet can use them more easily. 
+    """ Combines values and transforms them so the PhaseNet can use them more easily.
 
     vals_list: List of DecompValus
 
@@ -68,7 +68,7 @@ def get_concat_layers_inf(pyr, vals_list):
         )
 
 def separate_vals(vals, num_input):
-    """ Seperates input image batches and ground truth batches. 
+    """ Seperates input image batches and ground truth batches.
 
     vals<list>: [(frame1), <frame2>, ...., <ground_truth>]
 

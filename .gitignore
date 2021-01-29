@@ -6,7 +6,11 @@ davis.zip
 Trainset/
 Testset/*
 !Testset/*.mp4
-output_adacof_train
+output_adacof_train/
 output_phase_net_train/
 output_fusion_net_train/
+output_phase_net/
+output_fusion_net/
+output_phase_net_hl/
+output_fusion_net_hl/
 do_not_commit.py

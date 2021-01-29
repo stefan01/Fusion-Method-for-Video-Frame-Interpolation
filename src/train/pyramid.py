@@ -17,8 +17,9 @@ DecompValues = namedtuple(
     'low_level'
 )
 
-
 class Pyramid:
+    """ Steerable Pyramid Decomposition. """
+
     def __init__(self, height, nbands, scale_factor, device):
         self.height = height
         self.nbands = nbands
@@ -83,8 +84,6 @@ class Pyramid:
 
     def values_to_coeff(self, values):
         ndims, _, H, W = values.high_level.shape
-
-        # print(values.amplitude[0])
 
         # reorder amplitude and phase elements to list with list of 4 tensors for each level
         amplitude = self.reorder(values.amplitude, ndims)
