@@ -37,7 +37,7 @@ def interpolate_adacof(a, b, output):
     print('Interpolating {} and {} to {} with adacof'.format(a, b, output))
     with torch.no_grad():
         adacof_interp.interp(SimpleNamespace(
-            gpu_id=1,
+            gpu_id=0,
             model='src.adacof.models.adacofnet',
             kernel_size=5,
             dilation=1,
@@ -54,7 +54,7 @@ def interpolate_phasenet(a, b, output):
     print('Interpolating {} and {} to {} with phasenet'.format(a, b, output))
     with torch.no_grad():
         phasenet_interp.interp(SimpleNamespace(
-            gpu_id=1,
+            gpu_id=0,
             first_frame=a,
             second_frame=b,
             output_frame=output,
@@ -66,7 +66,7 @@ def interpolate_fusion(a, b, output):
     print('Interpolating {} and {} to {} with fusion method'.format(a, b, output))
     with torch.no_grad():
         fusion_interp.interp(SimpleNamespace(
-            gpu_id=1,
+            gpu_id=0,
             adacof_model='src.fusion_net.fusion_adacofnet',
             adacof_kernel_size=5,
             adacof_dilation=1,
@@ -158,7 +158,7 @@ def create_images(testset, test_path, inter_path):
         inter_image_adacof = [inter_path + i + "/adacof/" + interpolate for interpolate in sorted(os.listdir(inter_path + "/" + i + "/adacof"))]
         inter_image_phasenet = [inter_path + i + "/phasenet/" + interpolate for interpolate in sorted(os.listdir(inter_path + "/" + i + "/phasenet"))]
         inter_image_fusion = [inter_path + i + "/fusion/" + interpolate for interpolate in sorted(os.listdir(inter_path + "/" + i + "/fusion"))]
-        error = np.load("Evaluation/result_" + i + ".npy")[:, 0, :]
+        error = np.load("Evaluation/result_" + i + ".npy")
         for image_idx in range(len(inter_image_adacof) - 1): # TODO: Could be that error is missing one entry?
             draw_difference(np.asarray(Image.open(inter_image_adacof[image_idx])),
                             np.asarray(Image.open(inter_image_phasenet[image_idx])),
@@ -173,7 +173,7 @@ def create_images(testset, test_path, inter_path):
 
 
 def draw_difference(pred_img_adacof, pred_img_phasenet, pred_img_fusion, target_img, out_path, error, number):
-    name = 'img_{}_{}.png'.format(str(number).zfill(3), error[0])
+    name = 'img_{}_{}.png'.format(str(number).zfill(3), error[0, 0])
 
     if os.path.exists(out_path + "/" + name):
         return
@@ -206,19 +206,23 @@ def draw_difference(pred_img_adacof, pred_img_phasenet, pred_img_fusion, target_
     plt.imshow(difference_adacof, interpolation='none', cmap='plasma', vmin=0, vmax=255)
     plt.axis('off')
     plt.colorbar()
-    plt.title('AdaCoF Difference')
+    plt.title('AdaCoF Diff')
+    plt.text(500, 1300, 'SSIM: {:.2f}\nLPIPS: {:.2f}\nPSNR: {:.2f}'.format(error[0, 0], error[0, 1], error[0, 2]), ha='center')
 
     plt.subplot(3, 3, 8)
     plt.imshow(difference_fusion, interpolation='none', cmap='plasma', vmin=0, vmax=255)
     plt.axis('off')
     plt.colorbar()
-    plt.title('Fusion Difference')
+    plt.title('Fusion Diff')
+    plt.text(500, 1300, 'SSIM: {:.2f}\nLPIPS: {:.2f}\nPSNR: {:.2f}'.format(error[1, 0], error[1, 1], error[1, 2]), ha='center')
+
 
     plt.subplot(3, 3, 9)
     plt.imshow(difference_phasenet, interpolation='none', cmap='plasma', vmin=0, vmax=255)
     plt.axis('off')
     plt.colorbar()
-    plt.title('Phasenet Difference')
+    plt.title('Phasenet Diff')
+    plt.text(500, 1300, 'SSIM: {:.2f}\nLPIPS: {:.2f}\nPSNR: {:.2f}'.format(error[2, 0], error[2, 1], error[2, 2]), ha='center')
 
     plt.savefig(out_path + "/" + name, dpi=600)
     plt.clf()
@@ -267,6 +271,8 @@ def draw_measurements(datasets, datasets_results, title):
 
     legend_order = [1,2,0]
 
+    plt.figure(figsize=(2, 3))
+
     plt.suptitle(title)
     
     plt.subplot(1, 3, 1)
@@ -306,8 +312,12 @@ def draw_measurements(datasets, datasets_results, title):
 #testsets = ['Clip1', 'Clip2', 'Clip3', 'Clip4', 'Clip5', 'Clip6', 'Clip7', 'Clip8', 'Clip9', 'Clip10', 'Clip11', \
 #    'airboard_1', 'airplane_landing', 'airtable_3', 'basketball_1', 'water_ski_2', 'yoyo']
 
+#testsets = ['Clip{}'.format(i) for i in range(1, 7)]
+
+testsets = ['MODE_SH0280', 'MODE_SH0440', 'MODE_SH0450', 'MODE_SH0740', 'MODE_SH0780', 'MODE_SH1010', 'MODE_SH1270']
+
 #testsets = ['Clip1']
-testsets = ['MODE_SH1010']
+#testsets = ['MODE_SH1010']
 
 # Interpolate
 for testset in testsets:

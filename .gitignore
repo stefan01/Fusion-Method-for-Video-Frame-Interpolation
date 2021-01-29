@@ -14,3 +14,4 @@ output_fusion_net/
 output_phase_net_hl/
 output_fusion_net_hl/
 do_not_commit.py
+Evaluation/

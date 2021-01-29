@@ -67,7 +67,7 @@ def interp(args):
     shape_r = img_1.shape
 
     with torch.no_grad():
-        frame_out1, frame_out2 = adacof_model(
+        frame_out1, frame_out2, _ = adacof_model(
             torch.as_tensor(img_1).permute(2, 0, 1).float().unsqueeze(0).to(device)/255,
             torch.as_tensor(img_2).permute(2, 0, 1).float().unsqueeze(0).to(device)/255)
         frame_out1, frame_out2 = frame_out1.squeeze(0).permute(1, 2, 0).cpu().numpy(), frame_out2.squeeze(0).permute(1, 2, 0).cpu().numpy()
@@ -79,14 +79,10 @@ def interp(args):
     frame_out2_pad = pad_img(frame_out2)
 
     # To tensors
-    img_1 = rgb2lab(torch.as_tensor(img_1_pad).permute(2, 0, 1).float()).to(device)
-    img_2 = rgb2lab(torch.as_tensor(img_2_pad).permute(2, 0, 1).float()).to(device)
+    img_1 = rgb2lab_single(torch.as_tensor(img_1_pad).permute(2, 0, 1).float()).to(device)
+    img_2 = rgb2lab_single(torch.as_tensor(img_2_pad).permute(2, 0, 1).float()).to(device)
     frame_1 = torch.as_tensor(frame_out1_pad).permute(2, 0, 1).float().to(device)
     frame_2 = torch.as_tensor(frame_out2_pad).permute(2, 0, 1).float().to(device)
-
-    # Show frame
-    transforms.ToPILImage()(img_1).show()
-    transforms.ToPILImage()(frame_1).show()
 
     # Build pyramid
     pyr = Pyramid(
@@ -130,7 +126,7 @@ def interp(args):
 
     # Put picture together
     result = torch.cat(result, 0)
-    img_p = lab2rgb(result)
+    img_p = lab2rgb_single(result)
 
     img_p = img_p[:, :shape_r[0], :shape_r[1]]
 
