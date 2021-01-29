@@ -110,10 +110,10 @@ def interpolate_dataset(dataset_path):
 # and compares the result with b
 def evaluate_dataset(dataset_path):
     print('Evaluating Dataset ', dataset_path)
-    prediction_folder_adacof = sorted(glob.glob('{}/{}/adacof/*.png'.format(tmp_dir, dataset_path)))
-    prediction_folder_phasenet = sorted(glob.glob('{}/{}/phasenet/*.png'.format(tmp_dir, dataset_path)))
-    prediction_folder_fusion = sorted(glob.glob('{}/{}/fusion/*.png'.format(tmp_dir, dataset_path)))
-    target_folder = sorted(glob.glob('Testset/{}/*.png'.format(dataset_path)))
+    prediction_folder_adacof = sorted(glob.glob('{}/{}/adacof/*'.format(tmp_dir, dataset_path)))
+    prediction_folder_phasenet = sorted(glob.glob('{}/{}/phasenet/*'.format(tmp_dir, dataset_path)))
+    prediction_folder_fusion = sorted(glob.glob('{}/{}/fusion/*'.format(tmp_dir, dataset_path)))
+    target_folder = sorted(glob.glob('Testset/{}/*'.format(dataset_path)))
 
     output_path = os.path.dirname(os.path.dirname(dataset_path)) + "visual_result"
     if not os.path.exists(output_path):
