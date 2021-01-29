@@ -85,7 +85,7 @@ class Trainer:
             num_vals = 3
 
         # Combine images into one big batch and then create the values and separate
-        vals_batch = self.pyr.filter(img_batch)
+        vals_batch = self.pyr.filter(img_batch.float())
         vals_list = separate_vals(vals_batch, num_vals)
         vals_target = vals_list[-1]
         vals_input = get_concat_layers_inf(self.pyr, vals_list[:-1])
@@ -179,7 +179,7 @@ class Trainer:
         self.model.train()
 
         # Reconstruct image and save
-        img = lab2rgb(prediction.unsqueeze(0)).squeeze(0)
+        img = lab2rgb_single(prediction)
         img = img.detach().cpu()
         img = transforms.ToPILImage()(img)
         if idx is not None:

@@ -23,3 +23,14 @@ def lab2rgb(img: torch.Tensor):
     rgb = torch.tensor(rgb).permute(0, 3, 1, 2)
 
     return rgb
+
+def lab2rgb_single(img: torch.Tensor):
+    """ Transforms a single lab image into rgb color space. Dimensions: [C, H, W] """
+    rgb = img.clone().cpu().detach().permute(1, 2, 0).numpy()
+    rgb[:,:,0] *= 100
+    rgb[:,:,1:] *= 255
+    rgb[:,:,1:] -= 128
+    rgb = color.lab2rgb(rgb)
+    rgb = torch.tensor(rgb).permute(2, 0, 1)
+
+    return rgb
