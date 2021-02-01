@@ -48,7 +48,9 @@ def main():
     # Get args and set device
     args = parser.parse_args()
     torch.cuda.set_device(args.gpu_id)
-    out_dir = f"./output_{args.mode}_net{'_hl' if args.high_level else ''}{'_' + str(args.model) if args.model != 0 else ''}"
+    hl_str = '_hl' if args.high_level else ''
+    fusion_model = {'_' + str(args.model) if args.model != 0 else ''}
+    out_dir = f"./output_{args.mode}_net{hl_str}{fusion_model}"
 
     # RNG init
     random.seed(args.seed)

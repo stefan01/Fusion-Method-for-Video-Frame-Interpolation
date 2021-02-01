@@ -44,7 +44,7 @@ def to_variable(x):
 def main():
     interp(parser.parse_args())
 
-def interp(args):
+def interp(args, high_level=False):
     torch.cuda.set_device(args.gpu_id)
     # Warnings and device
     warnings.filterwarnings("ignore")
@@ -69,11 +69,14 @@ def interp(args):
     shape_r = img_1.shape
 
     with torch.no_grad():
-        frame_out1, frame_out2, frame_ada_res = adacof_model(
+        frame_out1, frame_out2, ada_pred = adacof_model(
             torch.as_tensor(img_1).permute(2, 0, 1).float().unsqueeze(0).to(device)/255,
             torch.as_tensor(img_2).permute(2, 0, 1).float().unsqueeze(0).to(device)/255)
         frame_out1, frame_out2 = frame_out1.squeeze(0).permute(1, 2, 0).cpu().numpy(), frame_out2.squeeze(0).permute(1, 2, 0).cpu().numpy()
-        frame_ada_res = frame_ada_res.squeeze(0).permute(1, 2, 0).cpu().numpy()
+        frame_ada_res = ada_pred.squeeze(0).permute(1, 2, 0).cpu().numpy()
+
+    #if high_level:
+      
 
     # Normalize and pad images
     img_1_pad = pad_img(img_1/255)
@@ -83,8 +86,8 @@ def interp(args):
     frame_ada_res_pad = pad_img(frame_ada_res)
 
     # To tensors
-    img_1 = rgb2lab_single(torch.as_tensor(img_1_pad).permute(2, 0, 1).float()).to(device)
-    img_2 = rgb2lab_single(torch.as_tensor(img_2_pad).permute(2, 0, 1).float()).to(device)
+    img_1 = rgb2lab_single(torch.as_tensor(img_1_pad).permute(2, 0, 1).float(), light=100, ab_mul=128, ab_max=0).to(device)
+    img_2 = rgb2lab_single(torch.as_tensor(img_2_pad).permute(2, 0, 1).float(), light=100, ab_mul=128, ab_max=0).to(device)
     frame_1 = torch.as_tensor(frame_out1_pad).permute(2, 0, 1).float().to(device)
     frame_2 = torch.as_tensor(frame_out2_pad).permute(2, 0, 1).float().to(device)
     frame_res = torch.as_tensor(frame_ada_res_pad).permute(2, 0, 1).float().to(device)
@@ -131,7 +134,7 @@ def interp(args):
 
     # Put picture together
     result = torch.cat(result, 0)
-    img_p = lab2rgb_single(result)
+    img_p = lab2rgb_single(result, light=100, ab_mul=128, ab_max=0)
 
     img_p = img_p[:, :shape_r[0], :shape_r[1]]
 
