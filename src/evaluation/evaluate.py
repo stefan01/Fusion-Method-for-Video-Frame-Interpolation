@@ -16,7 +16,7 @@ import src.phase_net.interpolate_twoframe as phasenet_interp
 import src.fusion_net.interpolate_twoframe as fusion_interp
 
 
-tmp_dir = 'Evaluation/tmp'
+tmp_dir = 'Evaluation/compare_fusionNet_2'
 os.makedirs(tmp_dir, exist_ok=True)
 
 #prediction = torch.rand(4, 3, 256, 256, requires_grad=True)
@@ -75,7 +75,8 @@ def interpolate_fusion(a, b, output):
             output_frame=output,
             adacof_checkpoint='src/adacof/checkpoint/kernelsize_5/ckpt.pth',
             adacof_config='src/adacof/checkpoint/kernelsize_5/config.txt',
-            checkpoint='src/fusion_net/fusion_net.pt'
+            checkpoint='src/fusion_net/fusion_net_2.pt',
+            model=2
         ))
     torch.cuda.empty_cache()
 
@@ -309,12 +310,12 @@ def draw_measurements(datasets, datasets_results, title):
     plt.clf()
     #plt.show()
 
-#testsets = ['Clip1', 'Clip2', 'Clip3', 'Clip4', 'Clip5', 'Clip6', 'Clip7', 'Clip8', 'Clip9', 'Clip10', 'Clip11', \
-#    'airboard_1', 'airplane_landing', 'airtable_3', 'basketball_1', 'water_ski_2', 'yoyo']
+testsets = ['Clip1', 'Clip2', 'Clip3', 'Clip4', 'Clip5', 'Clip6', 'Clip7', 'Clip8', 'Clip9', 'Clip10', 'Clip11', \
+            'airboard_1', 'airplane_landing', 'airtable_3', 'basketball_1', 'water_ski_2', 'yoyo']
 
 #testsets = ['Clip{}'.format(i) for i in range(1, 7)]
 
-testsets = ['MODE_SH0280', 'MODE_SH0440', 'MODE_SH0450', 'MODE_SH0740', 'MODE_SH0780', 'MODE_SH1010', 'MODE_SH1270']
+# testsets = ['MODE_SH0280', 'MODE_SH0440', 'MODE_SH0450', 'MODE_SH0740', 'MODE_SH0780', 'MODE_SH1010', 'MODE_SH1270']
 
 #testsets = ['Clip1']
 #testsets = ['MODE_SH1010']
