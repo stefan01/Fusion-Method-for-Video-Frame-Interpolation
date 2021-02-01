@@ -10,14 +10,16 @@ from PIL import Image
 import matplotlib.pyplot as plt
 import numpy as np
 from types import SimpleNamespace
+import random
 
 import src.adacof.interpolate_twoframe as adacof_interp
 import src.phase_net.interpolate_twoframe as phasenet_interp
 import src.fusion_net.interpolate_twoframe as fusion_interp
 
-
+gpu_id = 1
 tmp_dir = 'Evaluation/tmp'
 os.makedirs(tmp_dir, exist_ok=True)
+random.seed(1)
 
 #prediction = torch.rand(4, 3, 256, 256, requires_grad=True)
 #target = torch.rand(4, 3, 256, 256)
@@ -37,7 +39,7 @@ def interpolate_adacof(a, b, output):
     print('Interpolating {} and {} to {} with adacof'.format(a, b, output))
     with torch.no_grad():
         adacof_interp.interp(SimpleNamespace(
-            gpu_id=0,
+            gpu_id=gpu_id,
             model='src.adacof.models.adacofnet',
             kernel_size=5,
             dilation=1,
@@ -54,7 +56,7 @@ def interpolate_phasenet(a, b, output):
     print('Interpolating {} and {} to {} with phasenet'.format(a, b, output))
     with torch.no_grad():
         phasenet_interp.interp(SimpleNamespace(
-            gpu_id=0,
+            gpu_id=gpu_id,
             first_frame=a,
             second_frame=b,
             output_frame=output,
@@ -66,7 +68,7 @@ def interpolate_fusion(a, b, output):
     print('Interpolating {} and {} to {} with fusion method'.format(a, b, output))
     with torch.no_grad():
         fusion_interp.interp(SimpleNamespace(
-            gpu_id=0,
+            gpu_id=gpu_id,
             adacof_model='src.fusion_net.fusion_adacofnet',
             adacof_kernel_size=5,
             adacof_dilation=1,
@@ -81,13 +83,21 @@ def interpolate_fusion(a, b, output):
 
 # Interpolates triples of images
 # from a dataset (list of filenames)
-def interpolate_dataset(dataset_path):
+def interpolate_dataset(dataset_path, max_num=None):
     dataset_name = os.path.basename(dataset_path)
     print('Interpolating Dataset {}'.format(dataset_name))
     dataset = sorted(glob.glob('{}/*.png'.format(dataset_path)))
     if not dataset:
         dataset = sorted(glob.glob('{}/*.jpg'.format(dataset_path)))
-    it = range(0, len(dataset)-2)
+
+    num = len(dataset)-2
+    start = 0
+    end = num
+    if max_num:
+        start = random.randint(0, num - max_num)
+        end = start + max_num
+    
+    it = range(start, end)
     print(dataset_path)
     for i in tqdm(iterable=it, total=len(it)):
         interpolated_filename = os.path.basename(dataset[i+1])
@@ -314,7 +324,11 @@ def draw_measurements(datasets, datasets_results, title):
 
 #testsets = ['Clip{}'.format(i) for i in range(1, 7)]
 
-testsets = ['MODE_SH0280', 'MODE_SH0440', 'MODE_SH0450', 'MODE_SH0740', 'MODE_SH0780', 'MODE_SH1010', 'MODE_SH1270']
+#testsets = ['MODE_SH0280', 'MODE_SH0440', 'MODE_SH0450', 'MODE_SH0740', 'MODE_SH0780', 'MODE_SH1010', 'MODE_SH1270']
+
+#testsets = ['Clip2', 'Clip4', 'Clip6', 'Clip11', 'MODE_SH0280', 'MODE_SH0440', 'MODE_SH0450', 'MODE_SH0740', 'MODE_SH1270']
+#testsets = ['Clip3', 'Clip5', 'Clip8', 'MODE_SH0280', 'MODE_SH0440', 'MODE_SH0450', 'MODE_SH0740', 'MODE_SH1270']
+testsets = ['airboard_1', 'airplane_landing', 'airtable_3', 'basketball_1', 'water_ski_2', 'yoyo']
 
 #testsets = ['Clip1']
 #testsets = ['MODE_SH1010']
@@ -323,7 +337,7 @@ testsets = ['MODE_SH0280', 'MODE_SH0440', 'MODE_SH0450', 'MODE_SH0740', 'MODE_SH
 for testset in testsets:
     if not os.path.isdir('{}/{}'.format(tmp_dir, testset)):
         testset_path = 'Testset/{}'.format(testset)
-        interpolate_dataset(testset_path)
+        interpolate_dataset(testset_path, max_num=4)
 
 # Evaluate Results
 results_np = []

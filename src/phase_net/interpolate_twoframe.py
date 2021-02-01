@@ -44,8 +44,8 @@ def interp(args):
     img_2 = pad_img(img_2/255)
 
     # To tensors
-    img_1 = rgb2lab_single(torch.as_tensor(img_1).permute(2, 0, 1).float()).to(device)
-    img_2 = rgb2lab_single(torch.as_tensor(img_2).permute(2, 0, 1).float()).to(device)
+    img_1 = rgb2lab_single(torch.as_tensor(img_1).permute(2, 0, 1).float(), light=100, ab_mul=255, ab_max=128).to(device)
+    img_2 = rgb2lab_single(torch.as_tensor(img_2).permute(2, 0, 1).float(), light=100, ab_mul=255, ab_max=128).to(device)
 
 
     # Build pyramid
@@ -86,7 +86,7 @@ def interp(args):
 
     # Put picture together
     result = torch.cat(result, 0)
-    img_p = lab2rgb_single(result)
+    img_p = lab2rgb_single(result, light=100, ab_mul=255, ab_max=128)
 
     img_p = img_p[:, :shape_r[0], :shape_r[1]]
 
