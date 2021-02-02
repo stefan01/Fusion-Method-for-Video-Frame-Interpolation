@@ -49,7 +49,7 @@ def main():
     args = parser.parse_args()
     torch.cuda.set_device(args.gpu_id)
     hl_str = '_hl' if args.high_level else ''
-    fusion_model = {'_' + str(args.model) if args.model != 0 else ''}
+    fusion_model = '_' + str(args.model) if args.model != 0 else ''
     out_dir = f"./output_{args.mode}_net{hl_str}{fusion_model}"
 
     # RNG init
@@ -77,6 +77,7 @@ def main():
         num = 2
     model = PhaseNet(pyr, device, num_img=num)
     m = 10
+    
     if args.m is not None:
         m = args.m
         #model.set_layers(m+1, 9, freeze=True)

@@ -77,11 +77,15 @@ class Trainer:
                 ada_frame1, ada_frame2, ada_pred = self.adacof_model(rgb_frame1, rgb_frame2)
                 ada_frame1 = ada_frame1.squeeze(0)
                 ada_frame2 = ada_frame2.squeeze(0)
+                ada_pred = ada_pred.squeeze(0)
 
         # Depending on modus (Fusion: concat adacof and phasenet images) concat number of images.
-        if self.args.mode == 'fusion':
+        if self.args.mode == 'fusion' and self.args.model == 1:
             img_batch = torch.cat((lab_frame1, lab_frame2, ada_frame1, ada_frame2, target), 0)
             num_vals = 5
+        elif self.args.mode == 'fusion' and self.args.model == 2:
+            img_batch = torch.cat((lab_frame1, lab_frame2, ada_pred, target), 0)
+            num_vals = 4
         elif self.args.mode == 'phase':
             img_batch = torch.cat((lab_frame1, lab_frame2, target), 0)
             num_vals = 3
