@@ -101,7 +101,7 @@ class PhaseNet(nn.Module):
     def forward(self, vals, m=None):
         """ Forward pass through network. """
         if m is None:
-          m = self.height-2
+            m = self.height-2
 
         # Get output of first phase-net block for low level prediction
         feature, prediction = self.layers[0](vals.low_level)

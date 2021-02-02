@@ -77,8 +77,8 @@ def interpolate_fusion(a, b, output):
             output_frame=output,
             adacof_checkpoint='src/adacof/checkpoint/kernelsize_5/ckpt.pth',
             adacof_config='src/adacof/checkpoint/kernelsize_5/config.txt',
-            checkpoint='src/fusion_net/fusion_net_2.pt',
-            model=2
+            checkpoint='src/fusion_net/fusion_net.pt',
+            model=1
         ))
     torch.cuda.empty_cache()
 

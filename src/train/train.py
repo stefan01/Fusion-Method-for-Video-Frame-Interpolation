@@ -26,7 +26,7 @@ parser.add_argument('--train', type=str, default='./Trainset/vimeo/vimeo_triplet
 parser.add_argument('--load', type=str, default=None)
 
 # Learning Options
-parser.add_argument('--epochs', type=int, default=2, help='max epochs')
+parser.add_argument('--epochs', type=int, default=1, help='max epochs')
 parser.add_argument('--batch_size', type=int, default=8, help='batch size')
 parser.add_argument('--seed', type=int, default=0, help='seed')
 parser.add_argument('--m', type=int, default=None, help='layers to train from 0 to m')
@@ -49,7 +49,7 @@ def main():
     args = parser.parse_args()
     torch.cuda.set_device(args.gpu_id)
     hl_str = '_hl' if args.high_level else ''
-    fusion_model = {'_' + str(args.model) if args.model != 0 else ''}
+    fusion_model = '_' + str(args.model) if args.model != 0 else ''
     out_dir = f"./output_{args.mode}_net{hl_str}{fusion_model}"
 
     # RNG init
@@ -72,7 +72,7 @@ def main():
 
     # PhaseNet
     if args.mode == 'fusion':
-        num = 4 if args.model == 1 else 3
+        num = 4 if args.model == 0 else 3
     else:
         num = 2
     model = PhaseNet(pyr, device, num_img=num)

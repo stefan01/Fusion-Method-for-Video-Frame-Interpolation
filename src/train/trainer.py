@@ -32,7 +32,7 @@ class Trainer:
         self.current_epoch = start_epoch
         self.device = my_pyr.device
         self.m = m
-        self.m_update = 300
+        self.m_update = 100
         self.out_dir = out_dir
 
         self.optimizer = torch.optim.Adam(self.model.parameters(),
@@ -75,8 +75,10 @@ class Trainer:
         if self.args.mode == "fusion" or self.args.high_level:
             with torch.no_grad():
                 ada_frame1, ada_frame2, ada_pred = self.adacof_model(rgb_frame1, rgb_frame2)
-                ada_frame1 = ada_frame1.squeeze(0)
-                ada_frame2 = ada_frame2.squeeze(0)
+                ada_frame1 = rgb2lab(ada_frame1.reshape(-1, 3, ada_frame1.shape[2], ada_frame1.shape[3]))
+                ada_frame2 = rgb2lab(ada_frame2.reshape(-1, 3, ada_frame2.shape[2], ada_frame2.shape[3]))
+                ada_frame1 = ada_frame1.reshape(-1, ada_frame1.shape[2], ada_frame1.shape[3]).to(self.device).float()
+                ada_frame2 = ada_frame2.reshape(-1, ada_frame2.shape[2], ada_frame2.shape[3]).to(self.device).float()
 
         # Depending on modus (Fusion: concat adacof and phasenet images) concat number of images.
         if self.args.mode == 'fusion':
@@ -180,9 +182,9 @@ class Trainer:
             frame2 = frame2[:,:,:3]
 
         # Images to tensors
-        frame1 = torch.as_tensor(frame1).permute(2, 0, 1)
-        target = torch.as_tensor(target).permute(2, 0, 1)
-        frame2 = torch.as_tensor(frame2).permute(2, 0, 1)
+        frame1 = torch.as_tensor(frame1).permute(2, 0, 1)/255
+        target = torch.as_tensor(target).permute(2, 0, 1)/255
+        frame2 = torch.as_tensor(frame2).permute(2, 0, 1)/255
         rgb_frame1 = frame1.unsqueeze(0).float().to(self.device)
         rgb_frame2 = frame2.unsqueeze(0).float().to(self.device)
 
