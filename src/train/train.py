@@ -77,6 +77,7 @@ def main():
         num = 2
     model = PhaseNet(pyr, device, num_img=num)
     m = 10
+    
     if args.m is not None:
         m = args.m
         #model.set_layers(m+1, 9, freeze=True)

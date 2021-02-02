@@ -117,7 +117,10 @@ class PhaseNet(nn.Module):
             
             ada_low_level = ada_alpha * vals.low_level[:, 2] + (1-ada_alpha) * vals.low_level[:, 3]
             low_level = fusion_alpha * low_level + (1-fusion_alpha) * ada_low_level
-            
+        elif self.num_img == 3:
+            fusion_alpha = (prediction[:, 1]+1)
+            low_level = fusion_alpha * low_level + (1-fusion_alpha) * vals.low_level[:, 2]
+
         # Extra dimension for low level
         low_level = low_level.unsqueeze(1)
 
@@ -160,6 +163,9 @@ class PhaseNet(nn.Module):
                 
                 ada_amplitude = ada_beta * vals.amplitude[idx][:, 8:12] + (1-ada_beta) * vals.amplitude[idx][:, 12:16]
                 amplitude = fusion_beta * amplitude + (1-fusion_beta) * ada_amplitude
+            elif self.num_img == 3:
+                fusion_beta = (prediction[:, 8:12]+1)/2
+                amplitude = fusion_beta * amplitude + (1-fusion_beta) * vals.amplitude[idx][:, 8:12]
 
             # append prediction to phase and amplitude
             res1, res2 = prediction.shape[2:]
