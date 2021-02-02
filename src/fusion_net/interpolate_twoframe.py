@@ -32,6 +32,8 @@ parser.add_argument('--first_frame', type=str, default='./sample_twoframe/0.png'
 parser.add_argument('--second_frame', type=str, default='./sample_twoframe/1.png')
 parser.add_argument('--output_frame', type=str, default='./output.png')
 
+parser.add_argument('--model', type=int, default=1)
+
 transform = transforms.Compose([transforms.ToTensor()])
 
 def to_variable(x):
@@ -71,6 +73,7 @@ def interp(args, high_level=False):
             torch.as_tensor(img_1).permute(2, 0, 1).float().unsqueeze(0).to(device)/255,
             torch.as_tensor(img_2).permute(2, 0, 1).float().unsqueeze(0).to(device)/255)
         frame_out1, frame_out2 = frame_out1.squeeze(0).permute(1, 2, 0).cpu().numpy(), frame_out2.squeeze(0).permute(1, 2, 0).cpu().numpy()
+        frame_ada_res = ada_pred.squeeze(0).permute(1, 2, 0).cpu().numpy()
 
     # High level 
     if high_level:
@@ -86,12 +89,14 @@ def interp(args, high_level=False):
     img_2_pad = pad_img(img_2/255)
     frame_out1_pad = pad_img(frame_out1)
     frame_out2_pad = pad_img(frame_out2)
+    frame_ada_res_pad = pad_img(frame_ada_res)
 
     # To tensors
     img_1 = rgb2lab_single(torch.as_tensor(img_1_pad).permute(2, 0, 1).float(), light=100, ab_mul=128, ab_max=0).to(device)
     img_2 = rgb2lab_single(torch.as_tensor(img_2_pad).permute(2, 0, 1).float(), light=100, ab_mul=128, ab_max=0).to(device)
     frame_1 = torch.as_tensor(frame_out1_pad).permute(2, 0, 1).float().to(device)
     frame_2 = torch.as_tensor(frame_out2_pad).permute(2, 0, 1).float().to(device)
+    frame_res = torch.as_tensor(frame_ada_res_pad).permute(2, 0, 1).float().to(device)
 
     # Build pyramid
     pyr = Pyramid(
@@ -102,7 +107,7 @@ def interp(args, high_level=False):
     )
 
     # Create FusionNet
-    fusion_net = PhaseNet(pyr, device, num_img=4)
+    fusion_net = PhaseNet(pyr, device, num_img=4 if args.model == 1 else 3)
     fusion_net.load_state_dict(torch.load(args.checkpoint))
     fusion_net.eval()
 
@@ -110,11 +115,11 @@ def interp(args, high_level=False):
 
     # Predict per channel, so we save memory
     for c in range(3):
-        imgs = torch.stack((img_1[c], img_2[c], frame_1[c], frame_2[c]), 0)
+        imgs = torch.stack((img_1[c], img_2[c], frame_1[c], frame_2[c]), 0) if args.model == 1 else torch.stack((img_1[c], img_2[c], frame_res[c]), 0)
 
         # combine images into one big batch and then create the values and separate
         vals = pyr.filter(imgs)
-        vals_list = separate_vals(vals, 4)
+        vals_list = separate_vals(vals, 4 if args.model == 1 else 3)
         vals_t = vals_list[-1]
         vals_inp = get_concat_layers_inf(pyr, vals_list)
         inp = fusion_net.normalize_vals(vals_inp)

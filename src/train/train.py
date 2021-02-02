@@ -39,6 +39,7 @@ parser.add_argument('--weight_decay', type=float, default=0, help='weight decay'
 # Method Settings
 parser.add_argument('--mode', type=str, default='phase', help='phase, fusion')
 parser.add_argument('--high_level', type=bool, default=False, help='replace high-level with adacof output or not')
+parser.add_argument('--model', type=int, default=0, help='Define which fusion model')
 
 transform = transforms.Compose([transforms.ToTensor()])
 
@@ -48,7 +49,8 @@ def main():
     args = parser.parse_args()
     torch.cuda.set_device(args.gpu_id)
     hl_str = '_hl' if args.high_level else ''
-    out_dir = f"./output_{args.mode}_net{hl_str}"
+    fusion_model = {'_' + str(args.model) if args.model != 0 else ''}
+    out_dir = f"./output_{args.mode}_net{hl_str}{fusion_model}"
 
     # RNG init
     random.seed(args.seed)
@@ -69,7 +71,11 @@ def main():
     )
 
     # PhaseNet
-    model = PhaseNet(pyr, device, num_img= 4 if args.mode == 'fusion' else 2)
+    if args.mode == 'fusion':
+        num = 4 if args.model == 1 else 3
+    else:
+        num = 2
+    model = PhaseNet(pyr, device, num_img=num)
     m = 10
     if args.m is not None:
         m = args.m
