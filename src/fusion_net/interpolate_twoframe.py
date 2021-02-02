@@ -72,7 +72,13 @@ def interp(args, high_level=False):
             torch.as_tensor(img_2).permute(2, 0, 1).float().unsqueeze(0).to(device)/255)
         frame_out1, frame_out2 = frame_out1.squeeze(0).permute(1, 2, 0).cpu().numpy(), frame_out2.squeeze(0).permute(1, 2, 0).cpu().numpy()
 
-    #if high_level:
+    # High level 
+    if high_level:
+        ada_pyr = self.pyr.filter(ada_pred.squeeze(0))
+        ada_hl = ada_pyr.high_level.clone().detach()
+        del ada_pyr
+        del ada_pred
+        torch.cuda.empty_cache()
       
 
     # Normalize and pad images
@@ -123,6 +129,10 @@ def interp(args, high_level=False):
         # predicted intersected image of frame1 and frame2
         with torch.no_grad():
             vals_r = fusion_net(inp)
+
+    
+        if high_level:
+            vals_r.high_level[:] = ada_hl[c]
 
         img_r = pyr.inv_filter(vals_r).detach().cpu()
         result.append(img_r)

@@ -16,9 +16,9 @@ warnings.filterwarnings("ignore")
 device = torch.device('cuda:0')
 
 # Import images
-img_1 = np.array(Image.open('Testset/Clip1/000.png'))[::8,::8]
-img_g = np.array(Image.open('Testset/Clip1/001.png'))[::8,::8]
-img_2 = np.array(Image.open('Testset/Clip1/002.png'))[::8,::8]
+img_1 = np.array(Image.open('counter_examples/basketball/00033.jpg'))
+img_g = np.array(Image.open('counter_examples/basketball/00034.jpg'))
+img_2 = np.array(Image.open('counter_examples/basketball/00035.jpg'))
 
 # Pad images
 img_1 = pad_img(img_1)

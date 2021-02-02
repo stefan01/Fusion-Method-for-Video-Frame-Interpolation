@@ -27,7 +27,7 @@ parser.add_argument('--load', type=str, default=None)
 
 # Learning Options
 parser.add_argument('--epochs', type=int, default=2, help='max epochs')
-parser.add_argument('--batch_size', type=int, default=5, help='batch size')
+parser.add_argument('--batch_size', type=int, default=8, help='batch size')
 parser.add_argument('--seed', type=int, default=0, help='seed')
 parser.add_argument('--m', type=int, default=None, help='layers to train from 0 to m')
 
@@ -71,10 +71,8 @@ def main():
     # PhaseNet
     model = PhaseNet(pyr, device, num_img= 4 if args.mode == 'fusion' else 2)
     m = 10
-    #model.set_layers(0, 5, freeze=True)
-    #if args.m is not None:
-        #m = args.m
-        #model.set_layers(0, m, freeze=True)
+    if args.m is not None:
+        m = args.m
         #model.set_layers(m+1, 9, freeze=True)
 
     # Load model if given
@@ -97,7 +95,6 @@ def main():
     # Train
     while not my_trainer.terminate():
         my_trainer.train()
-        my_trainer.test()
         torch.save(model.state_dict(), out_dir + f'/checkpoint/model_{my_trainer.current_epoch}.pt')
 
     loss_hist = np.asarray(my_trainer.loss_history)

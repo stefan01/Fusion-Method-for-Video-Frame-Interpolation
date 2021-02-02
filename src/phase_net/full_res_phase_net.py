@@ -17,10 +17,11 @@ device = torch.device('cuda:0')
 device_cpu = torch.device('cpu')
 
 # Import images
-img_1 = np.array(Image.open('Testset/Clip1/000.png'))
-img_g = np.array(Image.open('Testset/Clip1/001.png'))
-img_2 = np.array(Image.open('Testset/Clip1/002.png'))
+img_1 = np.array(Image.open('counter_examples/basketball/00033.jpg'))
+img_g = np.array(Image.open('counter_examples/basketball/00034.jpg'))
+img_2 = np.array(Image.open('counter_examples/basketball/00035.jpg'))
 shape_r = img_1.shape
+print(shape_r)
 
 # Normalize and pad images
 img_1 = pad_img(img_1/255)
@@ -30,9 +31,9 @@ img_2 = pad_img(img_2/255)
 #Image.fromarray((img_1*255).astype('uint8'), 'RGB').show()
 
 # To tensors
-img_1 = rgb2lab(torch.as_tensor(img_1).permute(2, 0, 1).float()).to(device)
-img_g = rgb2lab(torch.as_tensor(img_g).permute(2, 0, 1).float()).to(device)
-img_2 = rgb2lab(torch.as_tensor(img_2).permute(2, 0, 1).float()).to(device)
+img_1 = rgb2lab_single(torch.as_tensor(img_1).permute(2, 0, 1).float()).to(device)
+img_g = rgb2lab_single(torch.as_tensor(img_g).permute(2, 0, 1).float()).to(device)
+img_2 = rgb2lab_single(torch.as_tensor(img_2).permute(2, 0, 1).float()).to(device)
 
 
 # Build pyramid
@@ -53,8 +54,8 @@ result = []
 # Predict per channel, so we save memory
 for c in range(3):
     # Filter images and normalize
-    vals_1 = pyr.filter(img_1[c].unsqueeze(0))
-    vals_2 = pyr.filter(img_2[c].unsqueeze(0))
+    vals_1 = pyr.filter(img_1[c].unsqueeze(0).float())
+    vals_2 = pyr.filter(img_2[c].unsqueeze(0).float())
     vals_1_2 = get_concat_layers(pyr, vals_1, vals_2)
     vals_normalized = phase_net.normalize_vals(vals_1_2)
 
@@ -73,7 +74,7 @@ for c in range(3):
 
 # Put picture together
 result = torch.cat(result, 0)
-img_p = lab2rgb(result)
+img_p = lab2rgb_single(result)
 
 img_p = img_p[:, :shape_r[0], :shape_r[1]]
 

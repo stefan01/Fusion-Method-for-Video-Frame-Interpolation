@@ -16,10 +16,10 @@ import src.adacof.interpolate_twoframe as adacof_interp
 import src.phase_net.interpolate_twoframe as phasenet_interp
 import src.fusion_net.interpolate_twoframe as fusion_interp
 
-gpu_id = 1
+gpu_id = 0
 tmp_dir = 'Evaluation/tmp'
 os.makedirs(tmp_dir, exist_ok=True)
-random.seed(1)
+random.seed(999)
 
 #prediction = torch.rand(4, 3, 256, 256, requires_grad=True)
 #target = torch.rand(4, 3, 256, 256)
@@ -100,7 +100,8 @@ def interpolate_dataset(dataset_path, max_num=None):
     it = range(start, end)
     print(dataset_path)
     for i in tqdm(iterable=it, total=len(it)):
-        interpolated_filename = os.path.basename(dataset[i+1])
+        #interpolated_filename = os.path.basename(dataset[i+1])
+        interpolated_filename = '{}.png'.format(str(i).zfill(3))
         output_path_adacof = '{}/{}/adacof/{}'.format(tmp_dir, dataset_name, interpolated_filename)
         output_path_phasenet = '{}/{}/phasenet/{}'.format(tmp_dir, dataset_name, interpolated_filename)
         output_path_fusion = '{}/{}/fusion/{}'.format(tmp_dir, dataset_name, interpolated_filename)
@@ -131,14 +132,17 @@ def evaluate_dataset(dataset_path):
 
     eval_results = []
 
-    it = range(1, len(prediction_folder_adacof)) 
+    # Skip ground truth pictures if it has offset (max_num)
+    start_index = int(os.path.splitext(os.path.basename(prediction_folder_adacof[0]))[0])-1
+
+    it = range(1, len(prediction_folder_adacof))
 
     for i in tqdm(iterable=it, total=len(it)):
         # Load Images
         image_prediction_adacof = Image.open(prediction_folder_adacof[i])
         image_prediction_phasenet = Image.open(prediction_folder_phasenet[i])
         image_prediction_fusion = Image.open(prediction_folder_fusion[i])
-        image_target = Image.open(target_folder[i])
+        image_target = Image.open(target_folder[start_index + i])
 
         tensor_prediction_adacof = TF.to_tensor(image_prediction_adacof)
         tensor_prediction_phasenet = TF.to_tensor(image_prediction_phasenet)
@@ -162,18 +166,24 @@ def create_images(testset, test_path, inter_path):
     for idx, i in enumerate(testset):
         print('Evaluating {}'.format(i))
         out = 'Evaluation/visual_result/' + i
+
         if not os.path.exists(out):
             os.makedirs(out)
+        
         ground_truth = [test_path + i + "/" + filename for filename in sorted(os.listdir(test_path + "/" + i))][1:-1]
         inter_image_adacof = [inter_path + i + "/adacof/" + interpolate for interpolate in sorted(os.listdir(inter_path + "/" + i + "/adacof"))]
         inter_image_phasenet = [inter_path + i + "/phasenet/" + interpolate for interpolate in sorted(os.listdir(inter_path + "/" + i + "/phasenet"))]
         inter_image_fusion = [inter_path + i + "/fusion/" + interpolate for interpolate in sorted(os.listdir(inter_path + "/" + i + "/fusion"))]
         error = np.load("Evaluation/result_" + i + ".npy")
+
+        # Skip ground truth pictures if it has offset (max_num)
+        start_index = int(os.path.splitext(os.path.basename(inter_image_adacof[0]))[0])-1
+
         for image_idx in range(len(inter_image_adacof) - 1): # TODO: Could be that error is missing one entry?
             draw_difference(np.asarray(Image.open(inter_image_adacof[image_idx])),
                             np.asarray(Image.open(inter_image_phasenet[image_idx])),
                             np.asarray(Image.open(inter_image_fusion[image_idx])),
-                            np.asarray(Image.open(ground_truth[image_idx])),
+                            np.asarray(Image.open(ground_truth[start_index + image_idx])),
                             out, error[image_idx], image_idx)
         
         
@@ -281,7 +291,7 @@ def draw_measurements(datasets, datasets_results, title):
 
     legend_order = [1,2,0]
 
-    plt.figure(figsize=(2, 3))
+    plt.figure(figsize=(30, 10))
 
     plt.suptitle(title)
     
@@ -326,9 +336,18 @@ def draw_measurements(datasets, datasets_results, title):
 
 #testsets = ['MODE_SH0280', 'MODE_SH0440', 'MODE_SH0450', 'MODE_SH0740', 'MODE_SH0780', 'MODE_SH1010', 'MODE_SH1270']
 
+
+
+
+
 #testsets = ['Clip2', 'Clip4', 'Clip6', 'Clip11', 'MODE_SH0280', 'MODE_SH0440', 'MODE_SH0450', 'MODE_SH0740', 'MODE_SH1270']
+
 #testsets = ['Clip3', 'Clip5', 'Clip8', 'MODE_SH0280', 'MODE_SH0440', 'MODE_SH0450', 'MODE_SH0740', 'MODE_SH1270']
-testsets = ['airboard_1', 'airplane_landing', 'airtable_3', 'basketball_1', 'water_ski_2', 'yoyo']
+
+#testsets = ['airboard_1', 'airplane_landing', 'airtable_3', 'basketball_1', 'water_ski_2', 'yoyo']
+
+#testsets = ['Clip2', 'Clip4', 'Clip6', 'Clip11', 'MODE_SH0280', 'MODE_SH0440', 'MODE_SH0450', 'MODE_SH0740', 'MODE_SH1270', 'airboard_1', 'airplane_landing', 'airtable_3', 'basketball_1', 'water_ski_2', 'yoyo']
+testsets = ['Flashlight', 'firework', 'lights', 'sun']
 
 #testsets = ['Clip1']
 #testsets = ['MODE_SH1010']
@@ -337,7 +356,7 @@ testsets = ['airboard_1', 'airplane_landing', 'airtable_3', 'basketball_1', 'wat
 for testset in testsets:
     if not os.path.isdir('{}/{}'.format(tmp_dir, testset)):
         testset_path = 'Testset/{}'.format(testset)
-        interpolate_dataset(testset_path, max_num=4)
+        interpolate_dataset(testset_path, max_num=10)
 
 # Evaluate Results
 results_np = []

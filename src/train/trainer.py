@@ -11,6 +11,7 @@ from src.train.utils import *
 from src.train.transform import *
 from src.train.loss import *
 from types import SimpleNamespace
+from skimage import io
 
 # import Models
 from src.adacof.models import Model
@@ -31,6 +32,7 @@ class Trainer:
         self.current_epoch = start_epoch
         self.device = my_pyr.device
         self.m = m
+        self.m_update = 300
         self.out_dir = out_dir
 
         self.optimizer = torch.optim.Adam(self.model.parameters(),
@@ -101,7 +103,7 @@ class Trainer:
         vals_pred = self.model(input, self.m)
 
         # Exchange parts for hierarchical training
-        #vals_o = exchange_vals(vals_o, vals_t,  0, 10-self.m)
+        vals_pred = exchange_vals(vals_pred, vals_target,  0, 10-self.m)
 
         # If high_level is True, we use the high_level image of adacof
         if self.args.high_level:
@@ -146,31 +148,48 @@ class Trainer:
             self.loss_history.append(loss)
 
             if batch_idx % 100 == 0:
-                self.test(int(batch_idx/100))
+                self.test(idx=int(batch_idx/100), paths=['counter_examples/basketball/pad_00033.jpg', 'counter_examples/basketball/pad_00034.jpg', 'counter_examples/basketball/pad_00035.jpg'], name='basketball')
+                self.test(idx=int(batch_idx/100), paths=['counter_examples/Clip11/pad_033.png', 'counter_examples/Clip11/pad_034.png', 'counter_examples/Clip11/pad_035.png'], name='Clip11')
+                self.test(idx=int(batch_idx/100), paths=['counter_examples/Clip2/pad_010.png', 'counter_examples/Clip2/pad_011.png', 'counter_examples/Clip2/pad_012.png'], name='Clip2')
                 print('{:<13s}{:<14s}{:<6s}{:<16s}{:<12s}{:<20.16f} Percentages: {:<4f}, {:<4f}'.format('Train Epoch: ',
                       '[' + str(self.current_epoch) + '/' + str(self.args.epochs) + ']', 'Step: ',
                       '[' + str(batch_idx) + '/' + str(self.max_step) + ']', 'train loss: ', loss.item(), p1, p2))
                 torch.save(self.model.state_dict(), self.out_dir + f'/checkpoint/model_{self.current_epoch}_{int(batch_idx/100)}.pt')
 
+            # Hierarchical training update
+            if batch_idx % self.m_update == 0 and batch_idx > 0 and self.m < 10:
+                self.m += 1
+                #if self.m <= 7:
+                #  self.model.set_layers(0, self.m-1, freeze=False)
+
         self.current_epoch += 1
 
-    def test(self, idx=None):
+    def test(self, idx=None, paths=None, name=''):
+        # If no paths are given to test, break
+        if paths is None:
+            return
+        
         # Get test images
-        frame1 = Image.open('Testset/Clip1/000.png')
-        target = Image.open('Testset/Clip1/001.png')
-        frame2 = Image.open('Testset/Clip1/002.png')
+        frame1 = io.imread(paths[0])
+        target = io.imread(paths[1])
+        frame2 = io.imread(paths[2])
+        
+        if frame1.shape[-1] == 4:
+            frame1 = frame1[:,:,:3]
+            target = target[:,:,:3]
+            frame2 = frame2[:,:,:3]
 
         # Images to tensors
-        frame1 = TF.to_tensor(transforms.CenterCrop(256)(frame1)).unsqueeze(0)
-        target = TF.to_tensor(transforms.CenterCrop(256)(target)).unsqueeze(0)
-        frame2 = TF.to_tensor(transforms.CenterCrop(256)(frame2)).unsqueeze(0)
-        rgb_frame1 = frame1.to(self.device)
-        rgb_frame2 = frame2.to(self.device)
+        frame1 = torch.as_tensor(frame1).permute(2, 0, 1)
+        target = torch.as_tensor(target).permute(2, 0, 1)
+        frame2 = torch.as_tensor(frame2).permute(2, 0, 1)
+        rgb_frame1 = frame1.unsqueeze(0).float().to(self.device)
+        rgb_frame2 = frame2.unsqueeze(0).float().to(self.device)
 
         # Bring images into LAB color space
-        lab_frame1 = rgb2lab(frame1).squeeze(0).to(self.device)
-        target = rgb2lab(target).squeeze(0).to(self.device)
-        lab_frame2 = rgb2lab(frame2).squeeze(0).to(self.device)
+        lab_frame1 = rgb2lab_single(frame1).squeeze(0).to(self.device)
+        target = rgb2lab_single(target).squeeze(0).to(self.device)
+        lab_frame2 = rgb2lab_single(frame2).squeeze(0).to(self.device)
 
         # Predict intermediate frames
         self.model.eval()
@@ -183,9 +202,9 @@ class Trainer:
         img = img.detach().cpu()
         img = transforms.ToPILImage()(img)
         if idx is not None:
-            name = f'/result/img_{self.current_epoch}_{idx}.png'
+            name = f'/result/{name}_{self.current_epoch}_{idx}.png'
         else:
-            name = f'/result/img_{self.current_epoch}.png'
+            name = f'/result/{name}_{self.current_epoch}.png'
         img.save(self.out_dir + name)
 
         # Save also truth

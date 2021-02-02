@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 
-def get_loss(vals_o, vals_t, output, target, pyr, weighting_factor=0.01):
+def get_loss(vals_o, vals_t, output, target, pyr, weighting_factor=0.002):
     """ PhaseNet special loss. """
     phase_loss = 0
     l1loss = nn.L1Loss()
@@ -13,7 +13,8 @@ def get_loss(vals_o, vals_t, output, target, pyr, weighting_factor=0.01):
 
         for (orientation_r, orientation_g) in zip(phase_r_2, phase_g_2):
             delta_psi = torch.atan2(torch.sin(orientation_g - orientation_r), torch.cos(orientation_g - orientation_r))
-            phase_loss += l1loss(delta_psi, torch.zeros(delta_psi.shape, device=delta_psi.device))
+            phase_loss += torch.mean(torch.abs(delta_psi.reshape(-1)), 0)
+            #l1loss(delta_psi, torch.zeros(delta_psi.shape, device=delta_psi.device))
 
     #low_loss = l1loss(vals_o.low_level, vals_t.low_level)
     l_1 = l1loss(output, target)

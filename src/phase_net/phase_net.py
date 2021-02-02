@@ -22,10 +22,10 @@ class PhaseNet(nn.Module):
     def create_architecture(self):
         """ Create phase net architecture. """
         return nn.ModuleList([
-            PhaseNetBlock(self.num_img, 64, 1, (1, 1), self.device),
-            PhaseNetBlock(64 + 1 + 8 * self.num_img, 64, 8, (1, 1), self.device),
-            PhaseNetBlock(64 + 8 + 8 * self.num_img, 64, 8, (1, 1), self.device),
-            *[PhaseNetBlock(64 + 8 + 8 * self.num_img, 64, 8, (3 ,3), self.device) for _ in range(5)]
+            PhaseNetBlock(self.num_img, 64, (self.num_img-1), (1, 1), self.device),
+            PhaseNetBlock(64 + (self.num_img-1) + 8 * self.num_img, 64, 4 + 4*(self.num_img-1), (1, 1), self.device),
+            PhaseNetBlock(64 + 4+ 4*(self.num_img-1) + 8 * self.num_img, 64, 4 + 4*(self.num_img-1), (1, 1), self.device),
+            *[PhaseNetBlock(64 + 4 + 4*(self.num_img-1) + 8 * self.num_img, 64, 4 + 4*(self.num_img-1), (3 ,3), self.device) for _ in range(5)]
         ])
 
     def set_layers(self, start, end, freeze=True):
@@ -98,20 +98,35 @@ class PhaseNet(nn.Module):
             phase= phases[::-1]
             )
 
-    def forward(self, vals, m=0):
+    def forward(self, vals, m=None):
         """ Forward pass through network. """
-        m = self.height-2
+        if m is None:
+          m = self.height-2
 
         # Get output of first phase-net block for low level prediction
         feature, prediction = self.layers[0](vals.low_level)
-        low_level = prediction
+        
+        # Prediction is the linear weights between the first low level
+        alpha = (prediction[:, 0]+1)/2
+        low_level = alpha * vals.low_level[:, 0] + (1-alpha) * vals.low_level[:, 1]
+
+        # Fusion Method for low level
+        if self.num_img == 4:
+            ada_alpha = (prediction[:, 1]+1)/2
+            fusion_alpha = (prediction[:, 2]+1)/2
+            
+            ada_low_level = ada_alpha * vals.low_level[:, 2] + (1-ada_alpha) * vals.low_level[:, 3]
+            low_level = fusion_alpha * low_level + (1-fusion_alpha) * ada_low_level
+            
+        # Extra dimension for low level
+        low_level = low_level.unsqueeze(1)
 
         # Use zeros for high level prediction
         hl_shape = vals.high_level.shape
         high_level = torch.zeros((hl_shape[0], 1, hl_shape[2], hl_shape[3]), device=self.device)
 
         # Combined phase, amplitude values
-        phase, amplitude = [], []
+        phases, amplitudes = [], []
 
         for idx in range(m):
             # Resize
@@ -127,24 +142,36 @@ class PhaseNet(nn.Module):
             del prediction
             torch.cuda.empty_cache()
 
-            # pass concatenated layer through phasenet-Block
+            # Pass concatenated layer through phasenet
             i = idx+1 if idx+1 < len(self.layers)-1 else len(self.layers)-1
             feature, prediction = self.layers[i](concat)
 
             del concat
             torch.cuda.empty_cache()
+            
+            # Caculate amplitude values
+            beta = (prediction[:, 4:8]+1)/2
+            amplitude = beta * vals.amplitude[idx][:, 4:8] + (1-beta) * vals.amplitude[idx][:, :4]
+
+            # Fusion Method
+            if self.num_img == 4:
+                ada_beta = (prediction[:, 8:12]+1)/2
+                fusion_beta = (prediction[:, 12:16]+1)/2
+                
+                ada_amplitude = ada_beta * vals.amplitude[idx][:, 8:12] + (1-ada_beta) * vals.amplitude[idx][:, 12:16]
+                amplitude = fusion_beta * amplitude + (1-fusion_beta) * ada_amplitude
 
             # append prediction to phase and amplitude
             res1, res2 = prediction.shape[2:]
 
-            phase.append(prediction[:, :4, :, :].reshape(-1, 1, res1, res2))
-            amplitude.append(prediction[:, 4:, :, :].reshape(-1, 1, res1, res2))
+            phases.append(prediction[:, :4].reshape(-1, 1, res1, res2))
+            amplitudes.append(amplitude.reshape(-1, 1, res1, res2))
 
         values = self.reverse_normalize(DecompValues(
             high_level=high_level,
             low_level=low_level,
-            phase=phase,
-            amplitude=amplitude
+            phase=phases,
+            amplitude=amplitudes
         ), m)
 
         return values
@@ -153,7 +180,7 @@ class PhaseNetBlock(nn.Module):
     """
     PhaseNet Block
     """
-    def __init__(self, c_in, c_out, pred_out, kernel_size, device):
+    def __init__(self, c_in, c_out, pred_out, kernel_size, device, dropout=0.5):
         super(PhaseNetBlock, self).__init__()
 
         padding = 0
@@ -162,12 +189,13 @@ class PhaseNetBlock(nn.Module):
 
         self.feature_map = nn.Sequential(
             nn.Conv2d(c_in, c_out, kernel_size, padding=padding, padding_mode='reflect'),
-            nn.ReLU(),
             nn.BatchNorm2d(c_out),
+            nn.ELU(),
             nn.Conv2d(c_out, c_out, kernel_size, padding=padding, padding_mode='reflect'),
+            nn.ELU(),
         )
         self.prediction_map = nn.Sequential(
-            nn.Conv2d(c_out, pred_out, (1, 1)),
+            nn.Conv2d(c_out, pred_out, (1, 1), padding_mode='reflect'),
             nn.Tanh()
         )
         self.to(device)
