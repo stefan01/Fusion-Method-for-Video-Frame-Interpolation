@@ -15,6 +15,7 @@ from src.train.trainer import Trainer
 from src.train.pyramid import Pyramid
 from src.phase_net.phase_net import PhaseNet
 import matplotlib.pyplot as plt
+import os
 
 parser = argparse.ArgumentParser(description='PhaseNet-Pytorch')
 
@@ -104,6 +105,10 @@ def main():
     while not my_trainer.terminate():
         my_trainer.train()
         torch.save(model.state_dict(), out_dir + f'/checkpoint/model_{my_trainer.current_epoch}.pt')
+
+    # Delete Testfiles
+    os.remove(my_trainer.out_dir + '/log_train.txt')
+    os.remove(my_trainer.out_dir + '/loss_graph_train.png')
 
     loss_hist = np.asarray(my_trainer.loss_history)
     np.savetxt(my_trainer.out_dir + '/log.txt', loss_hist)
