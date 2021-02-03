@@ -72,8 +72,14 @@ def interp(args, high_level=False):
         frame_out1, frame_out2, ada_pred = adacof_model(
             torch.as_tensor(img_1).permute(2, 0, 1).float().unsqueeze(0).to(device)/255,
             torch.as_tensor(img_2).permute(2, 0, 1).float().unsqueeze(0).to(device)/255)
-        frame_out1, frame_out2 = frame_out1.squeeze(0).permute(1, 2, 0).cpu().numpy(), frame_out2.squeeze(0).permute(1, 2, 0).cpu().numpy()
-        frame_ada_res = ada_pred.squeeze(0).permute(1, 2, 0).cpu().numpy()
+        
+        frame_out1 = rgb2lab(frame_out1.reshape(-1, 3, frame_out1.shape[2], frame_out1.shape[3]))
+        frame_out2 = rgb2lab(frame_out2.reshape(-1, 3, frame_out2.shape[2], frame_out2.shape[3]))
+        ada_pred = rgb2lab(ada_pred.reshape(-1, 3, ada_pred.shape[2], ada_pred.shape[3]))
+                
+        frame_out1 = frame_out1.reshape(-1, frame_out1.shape[2], frame_out1.shape[3]).to(self.device).float()
+        frame_out2 = frame_out2.reshape(-1, frame_out2.shape[2], frame_out2.shape[3]).to(self.device).float()
+        ada_pred = ada_pred.reshape(-1, ada_pred.shape[2], ada_pred.shape[3]).to(self.device).float()
 
     # High level 
     if high_level:

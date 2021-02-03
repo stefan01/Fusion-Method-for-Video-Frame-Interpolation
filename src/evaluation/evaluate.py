@@ -17,7 +17,7 @@ import src.phase_net.interpolate_twoframe as phasenet_interp
 import src.fusion_net.interpolate_twoframe as fusion_interp
 
 gpu_id = 1
-tmp_dir = 'Evaluation/compare_fusion_2_(2_2)'
+tmp_dir = 'Evaluation/tmp'
 os.makedirs(tmp_dir, exist_ok=True)
 random.seed(999)
 
@@ -77,8 +77,8 @@ def interpolate_fusion(a, b, output):
             output_frame=output,
             adacof_checkpoint='src/adacof/checkpoint/kernelsize_5/ckpt.pth',
             adacof_config='src/adacof/checkpoint/kernelsize_5/config.txt',
-            checkpoint='src/fusion_net/fusion_net_2_(2_2).pt',
-            model=2
+            checkpoint='src/fusion_net/fusion_net.pt',
+            model=1
         ))
     torch.cuda.empty_cache()
 
@@ -370,7 +370,7 @@ for testset in testsets:
     results_np.append(result_np)
 
 testset_path = 'Testset/'
-interpolate_path = 'Evaluation/compare_fusion_2_(2_2)'
+interpolate_path = 'Evaluation/tmp'
 create_images(testsets, testset_path, interpolate_path)
 
 # Show Results
