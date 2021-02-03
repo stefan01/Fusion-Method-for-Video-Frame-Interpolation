@@ -14,6 +14,7 @@ from steerable.SCFpyr_PyTorch import SCFpyr_PyTorch
 from src.train.trainer import Trainer
 from src.train.pyramid import Pyramid
 from src.phase_net.phase_net import PhaseNet
+import matplotlib.pyplot as plt
 
 parser = argparse.ArgumentParser(description='PhaseNet-Pytorch')
 
@@ -105,7 +106,13 @@ def main():
         torch.save(model.state_dict(), out_dir + f'/checkpoint/model_{my_trainer.current_epoch}.pt')
 
     loss_hist = np.asarray(my_trainer.loss_history)
-    np.savetxt(out_dir + '/loss_hist.txt', loss_hist)
+    np.savetxt(my_trainer.out_dir + '/log.txt', loss_hist)
+    plt.plot([i for i in range(len(loss_hist))], loss_hist)
+    plt.xlabel('Step')
+    plt.ylabel('Loss')
+    model_idx = '_' + str(args.model) if args.mode == 'fusion' else ''
+    plt.title(f'Loss_{args.mode}{model_idx}_{args.epochs}_{my_trainer.max_step}')
+    plt.savefig(my_trainer.out_dir + '/loss_graph.png')
 
     my_trainer.close()
 
