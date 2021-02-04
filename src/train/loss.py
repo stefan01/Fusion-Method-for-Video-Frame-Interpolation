@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 
-def get_loss(vals_o, vals_t, output, target, pyr, weighting_factor=0.002):
+def get_loss(vals_o, vals_t, output, target, pyr, weighting_factor=0.005):
     """ PhaseNet special loss. """
     phase_loss = 0
     l1loss = nn.L1Loss()

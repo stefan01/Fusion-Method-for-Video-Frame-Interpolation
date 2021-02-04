@@ -32,6 +32,8 @@ parser.add_argument('--epochs', type=int, default=1, help='max epochs')
 parser.add_argument('--batch_size', type=int, default=8, help='batch size')
 parser.add_argument('--seed', type=int, default=0, help='seed')
 parser.add_argument('--m', type=int, default=None, help='layers to train from 0 to m')
+parser.add_argument('--m_update', type=int, default=500, help='number of batches after updating m')
+
 
 # Optimization specifications
 parser.add_argument('--lr', type=float, default=1e-3, help='learning rate')
@@ -91,7 +93,7 @@ def main():
 
     # Set trainer
     my_trainer = Trainer(args, train_loader, model, my_pyr=pyr, lr=args.lr, weight_decay=args.weight_decay,
-                                start_epoch=start_epoch, out_dir=out_dir, m=m)
+                                start_epoch=start_epoch, out_dir=out_dir, m=m, m_update=args.m_update)
 
     # Log training
     now = datetime.datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
