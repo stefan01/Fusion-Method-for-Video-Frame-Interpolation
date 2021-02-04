@@ -11,19 +11,43 @@ import matplotlib.pyplot as plt
 import numpy as np
 from types import SimpleNamespace
 import random
+import argparse
+import datetime
 
 import src.adacof.interpolate_twoframe as adacof_interp
 import src.phase_net.interpolate_twoframe as phasenet_interp
 import src.fusion_net.interpolate_twoframe as fusion_interp
 
-gpu_id = 0
-tmp_dir = 'Evaluation/tmp'
-os.makedirs(tmp_dir, exist_ok=True)
-random.seed(999)
+parser = argparse.ArgumentParser(description='Evaluation')
 
-#prediction = torch.rand(4, 3, 256, 256, requires_grad=True)
-#target = torch.rand(4, 3, 256, 256)
-#print(evaluate(prediction, target))
+# Evaluation Parameters
+parser.add_argument('--gpu_id', type=int, default=0)
+parser.add_argument('--adacof', action='store_true')
+parser.add_argument('--phase', action='store_true')
+parser.add_argument('--fusion', action='store_true')
+parser.add_argument('--base_dir', type=str, default='./Evaluation/{}/'.format(datetime.datetime.now()))
+parser.add_argument('--img_output', type=str, default='interpolated')
+parser.add_argument('--max_num', type=int, default=10)
+parser.add_argument('--seed', type=int, default=1000)
+parser.add_argument('--test_sets', type=str, nargs='+', 
+    default=['airboard_1', 'airplane_landing', 'airtable_3', 'basketball_1', 'water_ski_2', 'yoyo', \
+            'MODE_SH0280', 'MODE_SH0440', 'MODE_SH0450', 'MODE_SH0740', 'MODE_SH0780', 'MODE_SH1010', 'MODE_SH1270', \
+            'Flashlight', 'firework', 'lights', 'sun'])
+
+# Adacof Parameters
+parser.add_argument('--adacof_model', type=str, default='src.fusion_net.fusion_adacofnet')
+parser.add_argument('--adacof_checkpoint', type=str, default='./src/adacof/checkpoint/kernelsize_5/ckpt.pth')
+parser.add_argument('--adacof_config', type=str, default='./src/adacof/checkpoint/kernelsize_5/config.txt')
+parser.add_argument('--adacof_kernel_size', type=int, default=5)
+parser.add_argument('--adacof_dilation', type=int, default=1)
+
+# Phasenet Parameters
+parser.add_argument('--phasenet_checkpoint', type=str, default='./src/phase_net/phase_net.pt')
+
+# Fusion Parameters
+parser.add_argument('--fusion_checkpoint', type=str, default='./src/fusion_net/fusion_net.pt')
+parser.add_argument('--fusion_model', type=int, default=1)
+parser.add_argument('--replace_high_level', action='store_true')
 
 # Returns all measurements for the image
 def evaluate_image(prediction, target):
@@ -39,15 +63,15 @@ def interpolate_adacof(a, b, output):
     print('Interpolating {} and {} to {} with adacof'.format(a, b, output))
     with torch.no_grad():
         adacof_interp.interp(SimpleNamespace(
-            gpu_id=gpu_id,
-            model='src.adacof.models.adacofnet',
-            kernel_size=5,
-            dilation=1,
+            gpu_id=args.gpu_id,
+            model=args.adacof_model,
+            kernel_size=args.adacof_kernel_size,
+            dilation=args.adacof_dilation,
             first_frame=a,
             second_frame=b,
             output_frame=output,
-            checkpoint='src/adacof/checkpoint/kernelsize_5/ckpt.pth',
-            config='src/adacof/checkpoint/kernelsize_5/config.txt'
+            checkpoint=args.adacof_checkpoint,
+            config=args.adacof_config
         ))
     torch.cuda.empty_cache()
     
@@ -56,11 +80,11 @@ def interpolate_phasenet(a, b, output):
     print('Interpolating {} and {} to {} with phasenet'.format(a, b, output))
     with torch.no_grad():
         phasenet_interp.interp(SimpleNamespace(
-            gpu_id=gpu_id,
+            gpu_id=args.gpu_id,
             first_frame=a,
             second_frame=b,
             output_frame=output,
-            checkpoint='src/phase_net/phase_net.pt',
+            checkpoint=args.phasenet_checkpoint,
         ))
     torch.cuda.empty_cache()
 
@@ -68,23 +92,23 @@ def interpolate_fusion(a, b, output):
     print('Interpolating {} and {} to {} with fusion method'.format(a, b, output))
     with torch.no_grad():
         fusion_interp.interp(SimpleNamespace(
-            gpu_id=gpu_id,
-            adacof_model='src.fusion_net.fusion_adacofnet',
-            adacof_kernel_size=5,
-            adacof_dilation=1,
+            gpu_id=args.gpu_id,
+            adacof_model=args.fusion_model,
+            adacof_kernel_size=args.adacof_kernel_size,
+            adacof_dilation=args.adacof_dilation,
             first_frame=a,
             second_frame=b,
             output_frame=output,
-            adacof_checkpoint='src/adacof/checkpoint/kernelsize_5/ckpt.pth',
-            adacof_config='src/adacof/checkpoint/kernelsize_5/config.txt',
-            checkpoint='src/fusion_net/fusion_net.pt',
-            model=1
+            adacof_checkpoint=args.adacof_checkpoint,
+            adacof_config=args.adacof_config,
+            checkpoint=args.fusion_checkpoint,
+            model=args.fusion_model
         ))
     torch.cuda.empty_cache()
 
 # Interpolates triples of images
 # from a dataset (list of filenames)
-def interpolate_dataset(dataset_path, max_num=None):
+def interpolate_dataset(args, dataset_path, max_num=None):
     dataset_name = os.path.basename(dataset_path)
     print('Interpolating Dataset {}'.format(dataset_name))
     dataset = sorted(glob.glob('{}/*.png'.format(dataset_path)))
@@ -101,35 +125,39 @@ def interpolate_dataset(dataset_path, max_num=None):
     it = range(start, end)
     print(dataset_path)
     for i in tqdm(iterable=it, total=len(it)):
-        #interpolated_filename = os.path.basename(dataset[i+1])
         interpolated_filename = '{}.png'.format(str(i).zfill(3))
-        output_path_adacof = '{}/{}/adacof/{}'.format(tmp_dir, dataset_name, interpolated_filename)
-        output_path_phasenet = '{}/{}/phasenet/{}'.format(tmp_dir, dataset_name, interpolated_filename)
-        output_path_fusion = '{}/{}/fusion/{}'.format(tmp_dir, dataset_name, interpolated_filename)
+        output_path_adacof = os.path.join(args.base_dir, args.img_output, 'adacof')
+        output_path_phasenet = os.path.join(args.base_dir, args.img_output, 'phasenet')
+        output_path_fusion = os.path.join(args.base_dir, args.img_output, 'fusion')
 
-        # Create output folders if they don't exist yet
-        os.makedirs('{}/{}/adacof'.format(tmp_dir, dataset_name), exist_ok=True)
-        os.makedirs('{}/{}/phasenet'.format(tmp_dir, dataset_name), exist_ok=True)
-        os.makedirs('{}/{}/fusion'.format(tmp_dir, dataset_name), exist_ok=True)
+        output_path_adacof_image = os.path.join(output_path_adacof, interpolated_filename)
+        output_path_phasenet_image = os.path.join(output_path_phasenet, interpolated_filename)
+        output_path_fusion_image = os.path.join(output_path_fusion, interpolated_filename)
 
-        # Interpolate
-        interpolate_adacof(dataset[i], dataset[i+2], output_path_adacof)
-        interpolate_phasenet(dataset[i], dataset[i+2], output_path_phasenet)
-        interpolate_fusion(dataset[i], dataset[i+2], output_path_fusion)
+        # Interpolate and create output folders if they don't exist yet
+        if args.adacof:
+            os.makedirs(output_path_adacof, exist_ok=True)
+            interpolate_adacof(args, dataset[i], dataset[i+2], output_path_adacof)
+        if args.phase:
+            os.makedirs(output_path_phasenet, exist_ok=True)
+            interpolate_phasenet(args, dataset[i], dataset[i+2], output_path_phasenet)
+        if args.fusion:
+            os.makedirs(output_path_fusion, exist_ok=True)
+            interpolate_fusion(args, dataset[i], dataset[i+2], output_path_fusion)
 
 # Evaluates a dataset.
 # Takes interpolated images a and c
-# and compares the result with b
-def evaluate_dataset(dataset_path):
+# and compares the result with ground truth b
+def evaluate_dataset(args, dataset_path):
     print('Evaluating Dataset ', dataset_path)
-    prediction_folder_adacof = sorted(glob.glob('{}/{}/adacof/*'.format(tmp_dir, dataset_path)))
-    prediction_folder_phasenet = sorted(glob.glob('{}/{}/phasenet/*'.format(tmp_dir, dataset_path)))
-    prediction_folder_fusion = sorted(glob.glob('{}/{}/fusion/*'.format(tmp_dir, dataset_path)))
-    target_folder = sorted(glob.glob('Testset/{}/*'.format(dataset_path)))
+    output_path_adacof = os.path.join(args.base_dir, args.img_output, dataset_path, 'adacof')
+    output_path_phasenet = os.path.join(args.base_dir, args.img_output, 'phasenet')
+    output_path_fusion = os.path.join(args.base_dir, args.img_output, 'fusion')
 
-    output_path = os.path.dirname(os.path.dirname(dataset_path)) + "visual_result"
-    if not os.path.exists(output_path):
-        os.makedirs(output_path)
+    prediction_folder_adacof = sorted(glob.glob(os.path.join(output_path_adacof, '*')))
+    prediction_folder_phasenet = sorted(glob.glob(os.path.join(output_path_phasenet, '*')))
+    prediction_folder_fusion = sorted(glob.glob(os.path.join(output_path_fusion, '*')))
+    target_folder = sorted(glob.glob(os.path.join('Testset', dataset_path, '*')))
 
     eval_results = []
 
@@ -139,34 +167,50 @@ def evaluate_dataset(dataset_path):
     it = range(1, len(prediction_folder_adacof))
 
     for i in tqdm(iterable=it, total=len(it)):
-        # Load Images
-        image_prediction_adacof = Image.open(prediction_folder_adacof[i])
-        image_prediction_phasenet = Image.open(prediction_folder_phasenet[i])
-        image_prediction_fusion = Image.open(prediction_folder_fusion[i])
+        # Load reference images
         image_target = Image.open(target_folder[start_index + i])
-
-        tensor_prediction_adacof = TF.to_tensor(image_prediction_adacof)
-        tensor_prediction_phasenet = TF.to_tensor(image_prediction_phasenet)
-        tensor_prediction_fusion = TF.to_tensor(image_prediction_fusion)
         tensor_target = TF.to_tensor(image_target)
 
-        # Evaluate
-        eval_result_adacof = evaluate_image(tensor_prediction_adacof, tensor_target)
-        eval_result_phasenet = evaluate_image(tensor_prediction_phasenet, tensor_target)
-        eval_result_fusion = evaluate_image(tensor_prediction_fusion, tensor_target)
+        eval_image_results = []
 
-        eval_results.append(np.stack((eval_result_adacof, eval_result_phasenet, eval_result_fusion)))
+        if args.adacof:
+            # Load Images
+            image_prediction_adacof = Image.open(prediction_folder_adacof[i])
+            tensor_prediction_adacof = TF.to_tensor(image_prediction_adacof)
+
+            # Evaluate
+            eval_result_adacof = evaluate_image(tensor_prediction_adacof, tensor_target)
+            eval_image_results.append(eval_result_adacof)
+        if args.phase:
+            # Load Images
+            image_prediction_phasenet = Image.open(prediction_folder_phasenet[i])
+            tensor_prediction_phasenet = TF.to_tensor(image_prediction_phasenet)
+
+            # Evaluate
+            eval_result_phasenet = evaluate_image(tensor_prediction_phasenet, tensor_target)
+            eval_image_results.append(eval_result_phasenet)
+        if args.fusion:
+            # Load Images
+            image_prediction_fusion = Image.open(prediction_folder_fusion[i])
+            tensor_prediction_fusion = TF.to_tensor(image_prediction_fusion)
+
+            # Evaluate
+            eval_result_fusion = evaluate_image(tensor_prediction_fusion, tensor_target)
+            eval_image_results.append(eval_result_fusion)
+
+        eval_results.append(np.stack(eval_image_results))
     
     return eval_results
 
 
-def create_images(testset, test_path, inter_path):
-    if not os.path.exists('Evaluation/visual_result'):
-        os.makedirs('Evaluation/visual_result')
+def create_images(args, testset, test_path, inter_path):
+    output_path = os.path.join(args.base_dir, 'visual_result')
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
 
     for idx, i in enumerate(testset):
         print('Evaluating {}'.format(i))
-        out = 'Evaluation/visual_result/' + i
+        out = os.path.join(output_path, i)
 
         if not os.path.exists(out):
             os.makedirs(out)
@@ -188,9 +232,9 @@ def create_images(testset, test_path, inter_path):
                             out, error[image_idx], image_idx)
         
         
-        input_images = sorted(glob.glob('{}/*.png'.format(out)))
+        input_images = sorted(glob.glob(os.path.join(out, '*.png')))
         print(input_images)
-        images_to_video(input_images, '{}/result.avi'.format(out), framerate=10)
+        images_to_video(input_images, os.path.join(out, 'result.avi', framerate=10))
 
 
 def draw_difference(pred_img_adacof, pred_img_phasenet, pred_img_fusion, target_img, out_path, error, number):
@@ -245,7 +289,7 @@ def draw_difference(pred_img_adacof, pred_img_phasenet, pred_img_fusion, target_
     plt.title('Phasenet Diff')
     plt.text(500, 1300, 'SSIM: {:.2f}\nLPIPS: {:.2f}\nPSNR: {:.2f}'.format(error[2, 0], error[2, 1], error[2, 2]), ha='center')
 
-    plt.savefig(out_path + "/" + name, dpi=600)
+    plt.savefig(os.path.join(out_path, name), dpi=600)
     plt.clf()
 
 def images_to_video(input_images, output_file, framerate=30):
@@ -264,7 +308,7 @@ def images_to_video(input_images, output_file, framerate=30):
         out.write(img)
     out.release()
 
-def draw_measurements(datasets, datasets_results, title):
+def draw_measurements(args, datasets, datasets_results, title):
     avg_data = []
     std_data = []
     min_data = []
@@ -326,65 +370,53 @@ def draw_measurements(datasets, datasets_results, title):
     handles, labels = plt.gca().get_legend_handles_labels()
     plt.legend([handles[idx] for idx in legend_order],[labels[idx] for idx in legend_order])
 
-    plt.savefig('Evaluation/results_{}.png'.format(title), dpi=600)
+    plt.savefig(os.path.join(args.base_dir, 'results_{}.png'.format(title)), dpi=600)
     plt.clf()
-    #plt.show()
 
-#testsets = ['Clip1', 'Clip2', 'Clip3', 'Clip4', 'Clip5', 'Clip6', 'Clip7', 'Clip8', 'Clip9', 'Clip10', 'Clip11', \
-#            'airboard_1', 'airplane_landing', 'airtable_3', 'basketball_1', 'water_ski_2', 'yoyo', \
-#            'MODE_SH0280', 'MODE_SH0440', 'MODE_SH0450', 'MODE_SH0740', 'MODE_SH0780', 'MODE_SH1010', 'MODE_SH1270', \
-#            'Flashlight', 'firework', 'lights', 'sun']
+def main():
+    eval(parser.parse_args())
 
-testsets = ['airboard_1', 'airplane_landing', 'airtable_3', 'basketball_1', 'water_ski_2', 'yoyo', \
-            'MODE_SH0280', 'MODE_SH0440', 'MODE_SH0450', 'MODE_SH0740', 'MODE_SH0780', 'MODE_SH1010', 'MODE_SH1270', \
-            'Flashlight', 'firework', 'lights', 'sun']
+def eval(args):
+    random.seed(args.seed)
+    img_output_dir = os.path.join(args.base_dir, args.img_output)
+    os.makedirs(img_output_dir, exist_ok=True)
 
-#testsets = ['Clip1', 'Clip2', 'Clip3', 'Clip4', 'Clip5', 'Clip6', 'Clip7', 'Clip8', 'Clip9', 'Clip10', 'Clip11']
+    # Interpolate
+    for testset in args.test_sets:
+        if not os.path.isdir(os.path.join(img_output_dir, testset)):
+            testset_path = os.path.join('Testset', testset)
+            interpolate_dataset(args, testset_path, max_num=args.max_num)
 
-#testsets = ['Clip{}'.format(i) for i in range(1, 7)]
+    # Evaluate Results
+    results_np = []
+    for testset in args.test_sets:
+        result_path = os.path.join(args.base_dir, 'result_{}.npy'.format(testset))
+        if os.path.exists(result_path):
+            result_np = np.load(result_path)
+        else:
+            result = evaluate_dataset(args, testset)
+            print('Result for {}: {}'.format(testset, result))
+            result_np = np.array(result)
+            np.save(result_path, result_np)
+        results_np.append(result_np)
 
-#testsets = ['MODE_SH0280', 'MODE_SH0440', 'MODE_SH0450', 'MODE_SH0740', 'MODE_SH0780', 'MODE_SH1010', 'MODE_SH1270']
+    testset_path = 'Testset/'
+    create_images(args, args.test_sets, testset_path, args.img_output)
 
+    # Show Results
+    i = 0
+    if args.adacof:
+        results_adacof = [r[i] for r in results_np]
+        draw_measurements(args, args.test_sets, results_adacof, 'AdaCoF')
+        i = i + 1
+    if args.phase:
+        results_phasenet = [r[i] for r in results_np]
+        draw_measurements(args, args.test_sets, results_phasenet, 'Phasenet')
+        i = i + 1
+    if args.fusion:
+        results_fusion = [r[i] for r in results_np]
+        draw_measurements(args, args.test_sets, results_fusion, 'Fusion')
+        i = i + 1
 
-#testsets = ['Clip2', 'Clip4', 'Clip6', 'Clip11', 'MODE_SH0280', 'MODE_SH0440', 'MODE_SH0450', 'MODE_SH0740', 'MODE_SH1270']
-
-#testsets = ['Clip3', 'Clip5', 'Clip8', 'MODE_SH0280', 'MODE_SH0440', 'MODE_SH0450', 'MODE_SH0740', 'MODE_SH1270']
-
-#testsets = ['airboard_1', 'airplane_landing', 'airtable_3', 'basketball_1', 'water_ski_2', 'yoyo']
-
-#testsets = ['Clip2', 'Clip4', 'Clip6', 'Clip11', 'MODE_SH0280', 'MODE_SH0440', 'MODE_SH0450', 'MODE_SH0740', 'MODE_SH1270', 'airboard_1', 'airplane_landing', 'airtable_3', 'basketball_1', 'water_ski_2', 'yoyo']
-# testsets = ['Flashlight', 'firework', 'lights', 'sun']
-
-#testsets = ['Clip1']
-#testsets = ['MODE_SH1010']
-
-# Interpolate
-for testset in testsets:
-    if not os.path.isdir('{}/{}'.format(tmp_dir, testset)):
-        testset_path = 'Testset/{}'.format(testset)
-        interpolate_dataset(testset_path, max_num=10)
-
-# Evaluate Results
-results_np = []
-for testset in testsets:
-    result_path = 'Evaluation/result_{}.npy'.format(testset)
-    if os.path.exists(result_path):
-        result_np = np.load(result_path)
-    else:
-        result = evaluate_dataset(testset)
-        print('Result for {}: {}'.format(testset, result))
-        result_np = np.array(result)
-        np.save('Evaluation/result_{}.npy'.format(testset), result_np)
-    results_np.append(result_np)
-
-testset_path = 'Testset/'
-interpolate_path = 'Evaluation/tmp'
-create_images(testsets, testset_path, interpolate_path)
-
-# Show Results
-results_adacof = [r[0] for r in results_np]
-results_phasenet = [r[1] for r in results_np]
-results_fusion = [r[2] for r in results_np]
-draw_measurements(testsets, results_adacof, 'AdaCoF')
-draw_measurements(testsets, results_phasenet, 'Phasenet')
-draw_measurements(testsets, results_fusion, 'Fusion')
+if __name__ == "__main__":
+    main()

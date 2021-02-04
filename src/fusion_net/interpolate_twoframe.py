@@ -77,9 +77,9 @@ def interp(args, high_level=False):
         frame_out2 = rgb2lab(frame_out2.reshape(-1, 3, frame_out2.shape[2], frame_out2.shape[3]))
         frame_ada_res = rgb2lab(ada_pred.reshape(-1, 3, ada_pred.shape[2], ada_pred.shape[3]))
                 
-        frame_out1 = frame_out1.reshape(-1, frame_out1.shape[2], frame_out1.shape[3]).to(self.device).float()
-        frame_out2 = frame_out2.reshape(-1, frame_out2.shape[2], frame_out2.shape[3]).to(self.device).float()
-        frame_ada_res = frame_ada_res.reshape(-1, frame_ada_res.shape[2], frame_ada_res.shape[3]).to(self.device).float()
+        frame_out1 = frame_out1.reshape(frame_out1.shape[2], frame_out1.shape[3], -1).cpu().numpy()
+        frame_out2 = frame_out2.reshape(frame_out2.shape[2], frame_out2.shape[3], -1).cpu().numpy()
+        frame_ada_res = frame_ada_res.reshape(-1, frame_ada_res.shape[2], frame_ada_res.shape[3]).cpu().numpy()
 
     # High level 
     if high_level:
