@@ -16,6 +16,8 @@ from src.adacof.models import Model
 from src.phase_net.phase_net import PhaseNet
 from types import SimpleNamespace
 
+import matplotlib.pyplot as plt
+
 parser = argparse.ArgumentParser(description='Two-frame Interpolation')
 
 parser.add_argument('--gpu_id', type=int, default=0)
@@ -69,40 +71,27 @@ def interp(args, high_level=False):
     shape_r = img_1.shape
 
     with torch.no_grad():
-        frame_out1, frame_out2, ada_pred = adacof_model(
+        frame_out1, frame_out2, ada_res = adacof_model(
             torch.as_tensor(img_1).permute(2, 0, 1).float().unsqueeze(0).to(device)/255,
             torch.as_tensor(img_2).permute(2, 0, 1).float().unsqueeze(0).to(device)/255)
         
-        frame_out1 = rgb2lab(frame_out1.reshape(-1, 3, frame_out1.shape[2], frame_out1.shape[3]))
-        frame_out2 = rgb2lab(frame_out2.reshape(-1, 3, frame_out2.shape[2], frame_out2.shape[3]))
-        frame_ada_res = rgb2lab(ada_pred.reshape(-1, 3, ada_pred.shape[2], ada_pred.shape[3]))
-                
-        frame_out1 = frame_out1.reshape(-1, frame_out1.shape[2], frame_out1.shape[3]).to(self.device).float()
-        frame_out2 = frame_out2.reshape(-1, frame_out2.shape[2], frame_out2.shape[3]).to(self.device).float()
-        frame_ada_res = frame_ada_res.reshape(-1, frame_ada_res.shape[2], frame_ada_res.shape[3]).to(self.device).float()
+        frame_out1, frame_out2 = frame_out1.squeeze(0).permute(1, 2, 0).cpu().numpy(), frame_out2.squeeze(0).permute(1, 2, 0).cpu().numpy()
+        frame_ada_res = ada_res.squeeze(0).permute(1, 2, 0).cpu().numpy()
 
-    # High level 
-    if high_level:
-        ada_pyr = self.pyr.filter(ada_pred.squeeze(0))
-        ada_hl = ada_pyr.high_level.clone().detach()
-        del ada_pyr
-        del ada_pred
-        torch.cuda.empty_cache()
-      
-
+        frame_out1_pad = pad_img(frame_out1)
+        frame_out2_pad = pad_img(frame_out2)
+        frame_ada_res_pad = pad_img(frame_ada_res)
+    
     # Normalize and pad images
     img_1_pad = pad_img(img_1/255)
     img_2_pad = pad_img(img_2/255)
-    frame_out1_pad = pad_img(frame_out1)
-    frame_out2_pad = pad_img(frame_out2)
-    frame_ada_res_pad = pad_img(frame_ada_res)
 
     # To tensors
     img_1 = rgb2lab_single(torch.as_tensor(img_1_pad).permute(2, 0, 1).float(), light=100, ab_mul=128, ab_max=0).to(device)
     img_2 = rgb2lab_single(torch.as_tensor(img_2_pad).permute(2, 0, 1).float(), light=100, ab_mul=128, ab_max=0).to(device)
-    frame_1 = torch.as_tensor(frame_out1_pad).permute(2, 0, 1).float().to(device)
-    frame_2 = torch.as_tensor(frame_out2_pad).permute(2, 0, 1).float().to(device)
-    frame_res = torch.as_tensor(frame_ada_res_pad).permute(2, 0, 1).float().to(device)
+    frame_1 = rgb2lab_single(torch.as_tensor(frame_out1_pad).permute(2, 0, 1).float(), light=100, ab_mul=128, ab_max=0).to(device)
+    frame_2 = rgb2lab_single(torch.as_tensor(frame_out2_pad).permute(2, 0, 1).float(), light=100, ab_mul=128, ab_max=0).to(device)
+    frame_res = rgb2lab_single(torch.as_tensor(frame_ada_res_pad).permute(2, 0, 1).float(), light=100, ab_mul=128, ab_max=0).to(device)    
 
     # Build pyramid
     pyr = Pyramid(
@@ -111,6 +100,14 @@ def interp(args, high_level=False):
         scale_factor=np.sqrt(2),
         device=device,
     )
+
+    # High level 
+    if high_level:
+        ada_pyr = pyr.filter(frame_res)
+        ada_hl = ada_pyr.high_level.clone().detach()
+        del ada_pyr
+        del frame_ada_res
+        torch.cuda.empty_cache()
 
     # Create FusionNet
     fusion_net = PhaseNet(pyr, device, num_img=4 if args.model == 1 else 3)
