@@ -353,7 +353,7 @@ testsets = ['airboard_1', 'airplane_landing', 'airtable_3', 'basketball_1', 'wat
 #testsets = ['airboard_1', 'airplane_landing', 'airtable_3', 'basketball_1', 'water_ski_2', 'yoyo']
 
 #testsets = ['Clip2', 'Clip4', 'Clip6', 'Clip11', 'MODE_SH0280', 'MODE_SH0440', 'MODE_SH0450', 'MODE_SH0740', 'MODE_SH1270', 'airboard_1', 'airplane_landing', 'airtable_3', 'basketball_1', 'water_ski_2', 'yoyo']
-#testsets = ['Flashlight', 'firework', 'lights', 'sun']
+# testsets = ['Flashlight', 'firework', 'lights', 'sun']
 
 #testsets = ['Clip1']
 #testsets = ['MODE_SH1010']
@@ -378,7 +378,7 @@ for testset in testsets:
     results_np.append(result_np)
 
 testset_path = 'Testset/'
-interpolate_path = 'Evaluation/tmp/'
+interpolate_path = 'Evaluation/tmp'
 create_images(testsets, testset_path, interpolate_path)
 
 # Show Results

@@ -12,6 +12,7 @@ from src.train.transform import *
 from src.train.loss import *
 from types import SimpleNamespace
 from skimage import io
+import matplotlib.pyplot as plt
 
 # import Models
 from src.adacof.models import Model
@@ -153,7 +154,7 @@ class Trainer:
 
             # To do output stuff with loss and image, we have to detach() and convert back to numpy.
             loss = loss.cpu().detach().numpy()
-            self.loss_history.append(loss)
+            self.loss_history.append(loss.item())
 
             if batch_idx % 100 == 0:
                 self.test(idx=int(batch_idx/100), paths=['counter_examples/basketball/pad_00033.jpg', 'counter_examples/basketball/pad_00034.jpg', 'counter_examples/basketball/pad_00035.jpg'], name='basketball')
@@ -163,6 +164,15 @@ class Trainer:
                       '[' + str(self.current_epoch) + '/' + str(self.args.epochs) + ']', 'Step: ',
                       '[' + str(batch_idx) + '/' + str(self.max_step) + ']', 'train loss: ', loss.item(), p1, p2))
                 torch.save(self.model.state_dict(), self.out_dir + f'/checkpoint/model_{self.current_epoch}_{int(batch_idx/100)}.pt')
+
+                loss_hist = np.asarray(self.loss_history)
+                np.savetxt(self.out_dir + '/log_train.txt', loss_hist)
+                plt.plot([i for i in range(len(loss_hist))], loss_hist)
+                plt.xlabel('Step')
+                plt.ylabel('Loss')
+                model_idx = '_' + str(self.args.model) if self.args.mode == 'fusion' else ''
+                plt.title(f'Loss_{self.args.mode}{model_idx}_{self.current_epoch}_{batch_idx}/{self.max_step}')
+                plt.savefig(self.out_dir + '/loss_graph_train.png')
 
             # Hierarchical training update
             if batch_idx % self.m_update == 0 and batch_idx > 0 and self.m < 10:
