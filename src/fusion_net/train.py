@@ -1,21 +1,22 @@
-# With changes from https://github.com/HyeongminLEE/AdaCoF-pytorch/blob/master/train.py
-# Train Script
-
 from torch.utils.data import DataLoader
 import argparse
 import torch
-import datetime
-import steerable.utils as utils
-import torchvision.transforms as transforms
-import numpy as np
 import random
+import numpy as np
+from types import SimpleNamespace
+import datetime
+
 from src.train.datareader import DBreader_Vimeo90k
 from steerable.SCFpyr_PyTorch import SCFpyr_PyTorch
-from src.train.trainer import Trainer
+from src.fusion_net.trainer import Trainer
 from src.train.pyramid import Pyramid
+
+# import Models
+from src.adacof.models import Model as AdaCofModel
+from src.fusion_net.fusion_net import FusionNet
 from src.phase_net.phase_net import PhaseNet
 
-parser = argparse.ArgumentParser(description='PhaseNet-Pytorch')
+parser = argparse.ArgumentParser(description='FusionNet-Pytorch')
 
 # Parameters
 # Hardware Setting
@@ -26,33 +27,21 @@ parser.add_argument('--train', type=str, default='./Trainset/vimeo/vimeo_triplet
 parser.add_argument('--load', type=str, default=None)
 
 # Learning Options
-parser.add_argument('--epochs', type=int, default=1, help='max epochs')
-parser.add_argument('--batch_size', type=int, default=8, help='batch size')
+parser.add_argument('--epochs', type=int, default=3, help='max epochs')
+parser.add_argument('--batch_size', type=int, default=16, help='batch size')
 parser.add_argument('--seed', type=int, default=0, help='seed')
-parser.add_argument('--m', type=int, default=None, help='layers to train from 0 to m')
-parser.add_argument('--m_update', type=int, default=500, help='number of batches after updating m')
-
 
 # Optimization specifications
-parser.add_argument('--lr', type=float, default=1e-3, help='learning rate')
+parser.add_argument('--lr', type=float, default=5e-4, help='learning rate')
 parser.add_argument('--lr_decay', type=int, default=0, help='learning rate decay per N epochs')
 parser.add_argument('--weight_decay', type=float, default=0, help='weight decay')
-
-# Method Settings
-parser.add_argument('--mode', type=str, default='phase', help='phase, fusion')
-parser.add_argument('--high_level', type=bool, default=False, help='replace high-level with adacof output or not')
-parser.add_argument('--model', type=int, default=0, help='Define which fusion model')
-
-transform = transforms.Compose([transforms.ToTensor()])
 
 
 def main():
     # Get args and set device
     args = parser.parse_args()
     torch.cuda.set_device(args.gpu_id)
-    hl_str = '_hl' if args.high_level else ''
-    fusion_model = '_' + str(args.model) if args.model != 0 else ''
-    out_dir = f"./output_{args.mode}_net{hl_str}{fusion_model}"
+    out_dir = f"./output_fusion_net_3"
 
     # RNG init
     random.seed(args.seed)
@@ -72,26 +61,36 @@ def main():
         device=device,
     )
 
-    # PhaseNet
-    if args.mode == 'fusion':
-        num = 4 if args.model == 0 else 3
-    else:
-        num = 2
-    model = PhaseNet(pyr, device, num_img=num)
-    m = 10
+    # Create Fusion Net
+    fusion_net = FusionNet().to(device)
     
-    if args.m is not None:
-        m = args.m
-        #model.set_layers(m+1, 9, freeze=True)
+    # Load phase net
+    phase_net = PhaseNet(pyr, device, num_img=2)
+    phase_net.eval()
+    phase_net.load_state_dict(torch.load('src/phase_net/phase_net.pt'))
+
+    # Load adacof model
+    adacof_args = SimpleNamespace(
+        gpu_id=args.gpu_id,
+        model='src.fusion_net.fusion_adacofnet',
+        kernel_size=5,
+        dilation=1,
+        config='src/adacof/checkpoint/kernelsize_5/config.txt'
+    )
+    adacof_model = AdaCofModel(adacof_args)
+    adacof_model.eval()
+    checkpoint = torch.load('src/adacof/checkpoint/kernelsize_5/ckpt.pth', map_location=torch.device('cpu'))
+    adacof_model.load(checkpoint['state_dict'])
+
 
     # Load model if given
     start_epoch = 0
     if args.load is not None:
-        model.load_state_dict(torch.load(args.load))
+        fusion_net.load_state_dict(torch.load(args.load))
 
     # Set trainer
-    my_trainer = Trainer(args, train_loader, model, my_pyr=pyr, lr=args.lr, weight_decay=args.weight_decay,
-                                start_epoch=start_epoch, out_dir=out_dir, m=m, m_update=args.m_update)
+    my_trainer = Trainer(args, train_loader, fusion_net, phase_net, adacof_model, my_pyr=pyr, lr=args.lr, weight_decay=args.weight_decay,
+                                start_epoch=start_epoch, out_dir=out_dir)
 
     # Log training
     now = datetime.datetime.now().strftime('%Y-%m-%d-%H:%M:%S')

@@ -16,7 +16,7 @@ import src.adacof.interpolate_twoframe as adacof_interp
 import src.phase_net.interpolate_twoframe as phasenet_interp
 import src.fusion_net.interpolate_twoframe as fusion_interp
 
-gpu_id = 1
+gpu_id = 0
 tmp_dir = 'Evaluation/tmp'
 os.makedirs(tmp_dir, exist_ok=True)
 random.seed(999)
@@ -94,7 +94,7 @@ def interpolate_dataset(dataset_path, max_num=None):
     num = len(dataset)-2
     start = 0
     end = num
-    if max_num:
+    if max_num and max_num < num:
         start = random.randint(0, num - max_num)
         end = start + max_num
     
@@ -330,8 +330,16 @@ def draw_measurements(datasets, datasets_results, title):
     plt.clf()
     #plt.show()
 
-testsets = ['Clip1', 'Clip2', 'Clip3', 'Clip4', 'Clip5', 'Clip6', 'Clip7', 'Clip8', 'Clip9', 'Clip10', 'Clip11', \
-            'airboard_1', 'airplane_landing', 'airtable_3', 'basketball_1', 'water_ski_2', 'yoyo']
+#testsets = ['Clip1', 'Clip2', 'Clip3', 'Clip4', 'Clip5', 'Clip6', 'Clip7', 'Clip8', 'Clip9', 'Clip10', 'Clip11', \
+#            'airboard_1', 'airplane_landing', 'airtable_3', 'basketball_1', 'water_ski_2', 'yoyo', \
+#            'MODE_SH0280', 'MODE_SH0440', 'MODE_SH0450', 'MODE_SH0740', 'MODE_SH0780', 'MODE_SH1010', 'MODE_SH1270', \
+#            'Flashlight', 'firework', 'lights', 'sun']
+
+testsets = ['airboard_1', 'airplane_landing', 'airtable_3', 'basketball_1', 'water_ski_2', 'yoyo', \
+            'MODE_SH0280', 'MODE_SH0440', 'MODE_SH0450', 'MODE_SH0740', 'MODE_SH0780', 'MODE_SH1010', 'MODE_SH1270', \
+            'Flashlight', 'firework', 'lights', 'sun']
+
+#testsets = ['Clip1', 'Clip2', 'Clip3', 'Clip4', 'Clip5', 'Clip6', 'Clip7', 'Clip8', 'Clip9', 'Clip10', 'Clip11']
 
 #testsets = ['Clip{}'.format(i) for i in range(1, 7)]
 
@@ -345,7 +353,7 @@ testsets = ['Clip1', 'Clip2', 'Clip3', 'Clip4', 'Clip5', 'Clip6', 'Clip7', 'Clip
 #testsets = ['airboard_1', 'airplane_landing', 'airtable_3', 'basketball_1', 'water_ski_2', 'yoyo']
 
 #testsets = ['Clip2', 'Clip4', 'Clip6', 'Clip11', 'MODE_SH0280', 'MODE_SH0440', 'MODE_SH0450', 'MODE_SH0740', 'MODE_SH1270', 'airboard_1', 'airplane_landing', 'airtable_3', 'basketball_1', 'water_ski_2', 'yoyo']
-testsets = ['Flashlight', 'firework', 'lights', 'sun']
+#testsets = ['Flashlight', 'firework', 'lights', 'sun']
 
 #testsets = ['Clip1']
 #testsets = ['MODE_SH1010']

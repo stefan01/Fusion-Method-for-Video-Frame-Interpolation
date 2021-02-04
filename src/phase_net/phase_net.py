@@ -22,10 +22,10 @@ class PhaseNet(nn.Module):
     def create_architecture(self):
         """ Create phase net architecture. """
         return nn.ModuleList([
-            PhaseNetBlock(self.num_img, 64, (self.num_img-1), (1, 1), self.device),
-            PhaseNetBlock(64 + (self.num_img-1) + 8 * self.num_img, 64, 4 + 4*(self.num_img-1), (1, 1), self.device),
-            PhaseNetBlock(64 + 4+ 4*(self.num_img-1) + 8 * self.num_img, 64, 4 + 4*(self.num_img-1), (1, 1), self.device),
-            *[PhaseNetBlock(64 + 4 + 4*(self.num_img-1) + 8 * self.num_img, 64, 4 + 4*(self.num_img-1), (3 ,3), self.device) for _ in range(5)]
+            PhaseNetBlock(self.num_img, 64, 1, (1, 1), self.device),
+            PhaseNetBlock(64 + 1 + 8 * self.num_img, 64, 8, (1, 1), self.device),
+            PhaseNetBlock(64 + 8 + 8 * self.num_img, 64, 8, (1, 1), self.device),
+            *[PhaseNetBlock(64 + 8 + 8 * self.num_img, 64, 8, (3 ,3), self.device) for _ in range(5)]
         ])
 
     def set_layers(self, start, end, freeze=True):
@@ -111,13 +111,14 @@ class PhaseNet(nn.Module):
         low_level = alpha * vals.low_level[:, 0] + (1-alpha) * vals.low_level[:, 1]
 
         # Fusion Method for low level
-        if self.num_img == 4:
-            ada_alpha = (prediction[:, 1]+1)/2
-            fusion_alpha = (prediction[:, 2]+1)/2
-            
-            ada_low_level = ada_alpha * vals.low_level[:, 2] + (1-ada_alpha) * vals.low_level[:, 3]
-            low_level = fusion_alpha * low_level + (1-fusion_alpha) * ada_low_level
-        elif self.num_img == 3:
+        #if self.num_img == 4:
+        #    ada_alpha = (prediction[:, 1]+1)/2
+        #    fusion_alpha = (prediction[:, 2]+1)/2
+        #    
+        #    ada_low_level = ada_alpha * vals.low_level[:, 2] + (1-ada_alpha) * vals.low_level[:, 3]
+        #    low_level = fusion_alpha * low_level + (1-fusion_alpha) * ada_low_level
+        #el
+        if self.num_img == 3:
             fusion_alpha = (prediction[:, 1]+1)
             low_level = fusion_alpha * low_level + (1-fusion_alpha) * vals.low_level[:, 2]
 
@@ -157,13 +158,14 @@ class PhaseNet(nn.Module):
             amplitude = beta * vals.amplitude[idx][:, 4:8] + (1-beta) * vals.amplitude[idx][:, :4]
 
             # Fusion Method
-            if self.num_img == 4:
-                ada_beta = (prediction[:, 8:12]+1)/2
-                fusion_beta = (prediction[:, 12:16]+1)/2
-                
-                ada_amplitude = ada_beta * vals.amplitude[idx][:, 8:12] + (1-ada_beta) * vals.amplitude[idx][:, 12:16]
-                amplitude = fusion_beta * amplitude + (1-fusion_beta) * ada_amplitude
-            elif self.num_img == 3:
+            #if self.num_img == 4:
+            #    ada_beta = (prediction[:, 8:12]+1)/2
+            #    fusion_beta = (prediction[:, 12:16]+1)/2
+    
+            #    ada_amplitude = ada_beta * vals.amplitude[idx][:, 8:12] + (1-ada_beta) * vals.amplitude[idx][:, 12:16]
+            #    amplitude = fusion_beta * amplitude + (1-fusion_beta) * ada_amplitude
+            #el
+            if self.num_img == 3:
                 fusion_beta = (prediction[:, 8:12]+1)/2
                 amplitude = fusion_beta * amplitude + (1-fusion_beta) * vals.amplitude[idx][:, 8:12]
 
