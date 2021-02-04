@@ -12,7 +12,7 @@ import numpy as np
 from types import SimpleNamespace
 import random
 import argparse
-import datetime
+from datetime import datetime
 
 import src.adacof.interpolate_twoframe as adacof_interp
 import src.phase_net.interpolate_twoframe as phasenet_interp
@@ -25,7 +25,7 @@ parser.add_argument('--gpu_id', type=int, default=0)
 parser.add_argument('--adacof', action='store_true')
 parser.add_argument('--phase', action='store_true')
 parser.add_argument('--fusion', action='store_true')
-parser.add_argument('--base_dir', type=str, default='./Evaluation/{}/'.format(datetime.datetime.now()))
+parser.add_argument('--base_dir', type=str, default=os.path.join('Evaluation', datetime.today().strftime('%Y-%m-%d-%H:%M:%S')))
 parser.add_argument('--img_output', type=str, default='interpolated')
 parser.add_argument('--max_num', type=int, default=10)
 parser.add_argument('--seed', type=int, default=1000)
@@ -35,7 +35,7 @@ parser.add_argument('--test_sets', type=str, nargs='+',
             'Flashlight', 'firework', 'lights', 'sun'])
 
 # Adacof Parameters
-parser.add_argument('--adacof_model', type=str, default='src.fusion_net.fusion_adacofnet')
+parser.add_argument('--adacof_model', type=str, default='src.adacof.models.adacofnet')
 parser.add_argument('--adacof_checkpoint', type=str, default='./src/adacof/checkpoint/kernelsize_5/ckpt.pth')
 parser.add_argument('--adacof_config', type=str, default='./src/adacof/checkpoint/kernelsize_5/config.txt')
 parser.add_argument('--adacof_kernel_size', type=int, default=5)
@@ -46,6 +46,7 @@ parser.add_argument('--phasenet_checkpoint', type=str, default='./src/phase_net/
 
 # Fusion Parameters
 parser.add_argument('--fusion_checkpoint', type=str, default='./src/fusion_net/fusion_net.pt')
+parser.add_argument('--fusion_adacof_model', type=str, default='src.fusion_net.fusion_adacofnet')
 parser.add_argument('--fusion_model', type=int, default=1)
 parser.add_argument('--replace_high_level', action='store_true')
 
@@ -59,52 +60,55 @@ def evaluate_image(prediction, target):
 
 # Interpolates image a and b (file paths)
 # using adacof and saves the result at output
-def interpolate_adacof(a, b, output):
-    print('Interpolating {} and {} to {} with adacof'.format(a, b, output))
-    with torch.no_grad():
-        adacof_interp.interp(SimpleNamespace(
-            gpu_id=args.gpu_id,
-            model=args.adacof_model,
-            kernel_size=args.adacof_kernel_size,
-            dilation=args.adacof_dilation,
-            first_frame=a,
-            second_frame=b,
-            output_frame=output,
-            checkpoint=args.adacof_checkpoint,
-            config=args.adacof_config
-        ))
-    torch.cuda.empty_cache()
+def interpolate_adacof(args, a, b, output):
+    if not os.path.exists(output):
+        print('Interpolating {} and {} to {} with adacof'.format(a, b, output))
+        with torch.no_grad():
+            adacof_interp.interp(SimpleNamespace(
+                gpu_id=args.gpu_id,
+                model=args.adacof_model,
+                kernel_size=args.adacof_kernel_size,
+                dilation=args.adacof_dilation,
+                first_frame=a,
+                second_frame=b,
+                output_frame=output,
+                checkpoint=args.adacof_checkpoint,
+                config=args.adacof_config
+            ))
+        torch.cuda.empty_cache()
     
 
-def interpolate_phasenet(a, b, output):
-    print('Interpolating {} and {} to {} with phasenet'.format(a, b, output))
-    with torch.no_grad():
-        phasenet_interp.interp(SimpleNamespace(
-            gpu_id=args.gpu_id,
-            first_frame=a,
-            second_frame=b,
-            output_frame=output,
-            checkpoint=args.phasenet_checkpoint,
-        ))
-    torch.cuda.empty_cache()
+def interpolate_phasenet(args, a, b, output):
+    if not os.path.exists(output):
+        print('Interpolating {} and {} to {} with phasenet'.format(a, b, output))
+        with torch.no_grad():
+            phasenet_interp.interp(SimpleNamespace(
+                gpu_id=args.gpu_id,
+                first_frame=a,
+                second_frame=b,
+                output_frame=output,
+                checkpoint=args.phasenet_checkpoint,
+            ))
+        torch.cuda.empty_cache()
 
-def interpolate_fusion(a, b, output):
-    print('Interpolating {} and {} to {} with fusion method'.format(a, b, output))
-    with torch.no_grad():
-        fusion_interp.interp(SimpleNamespace(
-            gpu_id=args.gpu_id,
-            adacof_model=args.fusion_model,
-            adacof_kernel_size=args.adacof_kernel_size,
-            adacof_dilation=args.adacof_dilation,
-            first_frame=a,
-            second_frame=b,
-            output_frame=output,
-            adacof_checkpoint=args.adacof_checkpoint,
-            adacof_config=args.adacof_config,
-            checkpoint=args.fusion_checkpoint,
-            model=args.fusion_model
-        ))
-    torch.cuda.empty_cache()
+def interpolate_fusion(args, a, b, output):
+    if not os.path.exists(output):
+        print('Interpolating {} and {} to {} with fusion method'.format(a, b, output))
+        with torch.no_grad():
+            fusion_interp.interp(SimpleNamespace(
+                gpu_id=args.gpu_id,
+                adacof_model=args.fusion_adacof_model,
+                adacof_kernel_size=args.adacof_kernel_size,
+                adacof_dilation=args.adacof_dilation,
+                first_frame=a,
+                second_frame=b,
+                output_frame=output,
+                adacof_checkpoint=args.adacof_checkpoint,
+                adacof_config=args.adacof_config,
+                checkpoint=args.fusion_checkpoint,
+                model=args.fusion_model
+            ))
+        torch.cuda.empty_cache()
 
 # Interpolates triples of images
 # from a dataset (list of filenames)
@@ -126,9 +130,9 @@ def interpolate_dataset(args, dataset_path, max_num=None):
     print(dataset_path)
     for i in tqdm(iterable=it, total=len(it)):
         interpolated_filename = '{}.png'.format(str(i).zfill(3))
-        output_path_adacof = os.path.join(args.base_dir, args.img_output, 'adacof')
-        output_path_phasenet = os.path.join(args.base_dir, args.img_output, 'phasenet')
-        output_path_fusion = os.path.join(args.base_dir, args.img_output, 'fusion')
+        output_path_adacof = os.path.join(args.base_dir, args.img_output, dataset_name, 'adacof')
+        output_path_phasenet = os.path.join(args.base_dir, args.img_output, dataset_name, 'phasenet')
+        output_path_fusion = os.path.join(args.base_dir, args.img_output, dataset_name, 'fusion')
 
         output_path_adacof_image = os.path.join(output_path_adacof, interpolated_filename)
         output_path_phasenet_image = os.path.join(output_path_phasenet, interpolated_filename)
@@ -137,13 +141,13 @@ def interpolate_dataset(args, dataset_path, max_num=None):
         # Interpolate and create output folders if they don't exist yet
         if args.adacof:
             os.makedirs(output_path_adacof, exist_ok=True)
-            interpolate_adacof(args, dataset[i], dataset[i+2], output_path_adacof)
+            interpolate_adacof(args, dataset[i], dataset[i+2], output_path_adacof_image)
         if args.phase:
             os.makedirs(output_path_phasenet, exist_ok=True)
-            interpolate_phasenet(args, dataset[i], dataset[i+2], output_path_phasenet)
+            interpolate_phasenet(args, dataset[i], dataset[i+2], output_path_phasenet_image)
         if args.fusion:
             os.makedirs(output_path_fusion, exist_ok=True)
-            interpolate_fusion(args, dataset[i], dataset[i+2], output_path_fusion)
+            interpolate_fusion(args, dataset[i], dataset[i+2], output_path_fusion_image)
 
 # Evaluates a dataset.
 # Takes interpolated images a and c
@@ -215,10 +219,10 @@ def create_images(args, testset, test_path, inter_path):
         if not os.path.exists(out):
             os.makedirs(out)
         
-        ground_truth = [test_path + i + "/" + filename for filename in sorted(os.listdir(test_path + "/" + i))][1:-1]
-        inter_image_adacof = [inter_path + i + "/adacof/" + interpolate for interpolate in sorted(os.listdir(inter_path + "/" + i + "/adacof"))]
-        inter_image_phasenet = [inter_path + i + "/phasenet/" + interpolate for interpolate in sorted(os.listdir(inter_path + "/" + i + "/phasenet"))]
-        inter_image_fusion = [inter_path + i + "/fusion/" + interpolate for interpolate in sorted(os.listdir(inter_path + "/" + i + "/fusion"))]
+        ground_truth = [os.path.join(test_path, i, filename) for filename in sorted(os.listdir(test_path + "/" + i))][1:-1]
+        inter_image_adacof = [os.path.join(inter_path, i, 'adacof', interpolate) for interpolate in sorted(os.listdir(os.path.join(inter_path, i, 'adacof')))]
+        inter_image_phasenet = [os.path.join(inter_path, i, 'phasenet', interpolate) for interpolate in sorted(os.listdir(os.path.join(inter_path, i, 'phasenet')))]
+        inter_image_fusion = [os.path.join(inter_path, i, 'fusion', interpolate) for interpolate in sorted(os.listdir(os.path.join(inter_path, i, 'fusion')))]
         error = np.load("Evaluation/result_" + i + ".npy")
 
         # Skip ground truth pictures if it has offset (max_num)
@@ -234,7 +238,7 @@ def create_images(args, testset, test_path, inter_path):
         
         input_images = sorted(glob.glob(os.path.join(out, '*.png')))
         print(input_images)
-        images_to_video(input_images, os.path.join(out, 'result.avi', framerate=10))
+        images_to_video(input_images, os.path.join(out, 'result.avi'), framerate=10)
 
 
 def draw_difference(pred_img_adacof, pred_img_phasenet, pred_img_fusion, target_img, out_path, error, number):
@@ -383,9 +387,8 @@ def eval(args):
 
     # Interpolate
     for testset in args.test_sets:
-        if not os.path.isdir(os.path.join(img_output_dir, testset)):
-            testset_path = os.path.join('Testset', testset)
-            interpolate_dataset(args, testset_path, max_num=args.max_num)
+        testset_path = os.path.join('Testset', testset)
+        interpolate_dataset(args, testset_path, max_num=args.max_num)
 
     # Evaluate Results
     results_np = []
@@ -401,7 +404,9 @@ def eval(args):
         results_np.append(result_np)
 
     testset_path = 'Testset/'
-    create_images(args, args.test_sets, testset_path, args.img_output)
+
+    if args.adacof and args.phase and args.fusion:
+        create_images(args, args.test_sets, testset_path, img_output_dir)
 
     # Show Results
     i = 0
