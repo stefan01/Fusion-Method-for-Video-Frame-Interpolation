@@ -16,9 +16,9 @@ warnings.filterwarnings("ignore")
 device = torch.device('cuda:0')
 
 # Import images
-img_1 = np.array(Image.open('counter_examples/basketball/00033.jpg'))
-img_g = np.array(Image.open('counter_examples/basketball/00034.jpg'))
-img_2 = np.array(Image.open('counter_examples/basketball/00035.jpg'))
+img_1 = np.array(Image.open('Testset/Clip11/046.png'))
+img_g = np.array(Image.open('Testset/Clip11/046.png'))
+img_2 = np.array(Image.open('Testset/Clip11/046.png'))
 
 # Pad images
 img_1 = pad_img(img_1)
@@ -26,9 +26,9 @@ img_g = pad_img(img_g)
 img_2 = pad_img(img_2)
 
 # To tensors
-img_1 = rgb2lab(torch.as_tensor(img_1).permute(2, 0, 1).float()).to(device)
-img_g = rgb2lab(torch.as_tensor(img_g).permute(2, 0, 1).float()).to(device)
-img_2 = rgb2lab(torch.as_tensor(img_2).permute(2, 0, 1).float()).to(device)
+img_1 = torch.as_tensor(img_1).permute(2, 0, 1).float().to(device)
+img_g = torch.as_tensor(img_g).permute(2, 0, 1).float().to(device)
+img_2 = torch.as_tensor(img_2).permute(2, 0, 1).float().to(device)
 
 print(img_1.shape)
 print(calc_pyr_height(img_1))
@@ -51,12 +51,17 @@ print(f'PhaseNet has {n} Parameters')
 
 # Filter images and normalize
 vals_1 = pyr.filter(img_1)
+
+print(vals_1.high_level.shape)
+transforms.ToPILImage()(vals_1.high_level.squeeze(1).cpu()).show()
+
+exit()
+
 vals_2 = pyr.filter(img_2)
 vals_1_2 = get_concat_layers(pyr, vals_1, vals_2)
 vals_normalized = phase_net.normalize_vals(vals_1_2)
 
 # Delete all old values to free memory
-del vals_1
 del vals_2
 del vals_1_2
 torch.cuda.empty_cache()

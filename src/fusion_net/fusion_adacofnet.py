@@ -3,6 +3,8 @@ import src.adacof.cupy_module.adacof as adacof
 import sys
 from torch.nn import functional as F
 from src.adacof.utility import CharbonnierFunc, moduleNormalize
+import matplotlib.pyplot as plt
+import numpy as np
 
 
 def make_model(args):
@@ -202,5 +204,20 @@ class AdaCoFNet(torch.nn.Module):
             tensorAdaCoF1 = tensorAdaCoF2[:, :, :, 0:w0]
             tensorAdaCoF2 = tensorAdaCoF2[:, :, :, 0:w0]
             frame1 = frame1[:, :, :, 0:w0]
+            
+        # Mean and Variance Flow Map
+        DeltaP1 = torch.stack([Alpha1, Beta1], 0)
+        DeltaP2 = torch.stack([Alpha2, Beta2], 0)
+
+        MeanFlowMap1 = (Weight1*DeltaP1).sum(-3)
+        MeanFlowMap2 = (Weight2*DeltaP2).sum(-3)
+        
+        VarFlowMap1 = (Weight1 * ((MeanFlowMap1 - DeltaP1.permute(2, 0, 1, 3, 4))**2).permute(1, 2, 0, 3, 4)).sum(-3)
+        VarFlowMap2 = (Weight2 * ((MeanFlowMap2 - DeltaP2.permute(2, 0, 1, 3, 4))**2).permute(1, 2, 0, 3, 4)).sum(-3)
+
+        # Calculate Uncetainty Mask
+        UncertaintyMask = torch.max(VarFlowMap1.sum(0), VarFlowMap2.sum(0))
+        UncertaintyMask = torch.clip(UncertaintyMask, 0, 20)/20
+        #UncertaintyMask = UncertaintyMask.permute(1,2,0).detach().cpu().numpy()
 
         return tensorAdaCoF1, tensorAdaCoF2, frame1

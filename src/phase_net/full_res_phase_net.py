@@ -17,9 +17,9 @@ device = torch.device('cuda:0')
 device_cpu = torch.device('cpu')
 
 # Import images
-img_1 = np.array(Image.open('counter_examples/basketball/00033.jpg'))
-img_g = np.array(Image.open('counter_examples/basketball/00034.jpg'))
-img_2 = np.array(Image.open('counter_examples/basketball/00035.jpg'))
+img_1 = np.array(Image.open('Testset/Clip8/000.png'))
+img_g = np.array(Image.open('Testset/Clip8/000.png'))
+img_2 = np.array(Image.open('Testset/Clip8/001.png'))
 shape_r = img_1.shape
 print(shape_r)
 
@@ -34,6 +34,11 @@ img_2 = pad_img(img_2/255)
 img_1 = rgb2lab_single(torch.as_tensor(img_1).permute(2, 0, 1).float()).to(device)
 img_g = rgb2lab_single(torch.as_tensor(img_g).permute(2, 0, 1).float()).to(device)
 img_2 = rgb2lab_single(torch.as_tensor(img_2).permute(2, 0, 1).float()).to(device)
+
+# RGB space
+#img_1 = torch.as_tensor(img_1).permute(2, 0, 1).float().to(device)
+#img_g = torch.as_tensor(img_g).permute(2, 0, 1).float().to(device)
+#img_2 = torch.as_tensor(img_2).permute(2, 0, 1).float().to(device)
 
 
 # Build pyramid
@@ -79,4 +84,4 @@ img_p = lab2rgb_single(result)
 img_p = img_p[:, :shape_r[0], :shape_r[1]]
 
 # Show frame
-transforms.ToPILImage()(img_p).show()
+transforms.ToPILImage()(img_p).save('fire.png')

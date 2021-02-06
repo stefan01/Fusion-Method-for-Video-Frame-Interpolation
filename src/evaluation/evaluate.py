@@ -43,12 +43,12 @@ parser.add_argument('--adacof_dilation', type=int, default=1)
 
 # Phasenet Parameters
 parser.add_argument('--phasenet_checkpoint', type=str, default='./src/phase_net/phase_net.pt')
+parser.add_argument('--phasenet_replace_high_level', action='store_true')
 
 # Fusion Parameters
 parser.add_argument('--fusion_checkpoint', type=str, default='./src/fusion_net/fusion_net.pt')
 parser.add_argument('--fusion_adacof_model', type=str, default='src.fusion_net.fusion_adacofnet')
 parser.add_argument('--fusion_model', type=int, default=1)
-parser.add_argument('--replace_high_level', action='store_true')
 
 # Returns all measurements for the image
 def evaluate_image(prediction, target):
@@ -88,6 +88,7 @@ def interpolate_phasenet(args, a, b, output):
                 second_frame=b,
                 output_frame=output,
                 checkpoint=args.phasenet_checkpoint,
+                high_level=args.phasenet_replace_high_level
             ))
         torch.cuda.empty_cache()
 
@@ -155,20 +156,30 @@ def interpolate_dataset(args, dataset_path, max_num=None):
 def evaluate_dataset(args, dataset_path):
     print('Evaluating Dataset ', dataset_path)
     output_path_adacof = os.path.join(args.base_dir, args.img_output, dataset_path, 'adacof')
-    output_path_phasenet = os.path.join(args.base_dir, args.img_output, 'phasenet')
-    output_path_fusion = os.path.join(args.base_dir, args.img_output, 'fusion')
+    output_path_phasenet = os.path.join(args.base_dir, args.img_output, dataset_path, 'phasenet')
+    output_path_fusion = os.path.join(args.base_dir, args.img_output, dataset_path, 'fusion')
 
-    prediction_folder_adacof = sorted(glob.glob(os.path.join(output_path_adacof, '*')))
-    prediction_folder_phasenet = sorted(glob.glob(os.path.join(output_path_phasenet, '*')))
-    prediction_folder_fusion = sorted(glob.glob(os.path.join(output_path_fusion, '*')))
+    if args.adacof:
+        prediction_folder_adacof = sorted(glob.glob(os.path.join(output_path_adacof, '*')))
+        num_img = len(prediction_folder_adacof)
+        first_img = prediction_folder_adacof[0]
+    if args.phase:
+        prediction_folder_phasenet = sorted(glob.glob(os.path.join(output_path_phasenet, '*')))
+        num_img = len(prediction_folder_phasenet)
+        first_img = prediction_folder_phasenet[0]
+    if args.fusion:
+        prediction_folder_fusion = sorted(glob.glob(os.path.join(output_path_fusion, '*')))
+        num_img = len(prediction_folder_fusion)
+        first_img = prediction_folder_fusion[0]
+    
     target_folder = sorted(glob.glob(os.path.join('Testset', dataset_path, '*')))
 
     eval_results = []
 
     # Skip ground truth pictures if it has offset (max_num)
-    start_index = int(os.path.splitext(os.path.basename(prediction_folder_adacof[0]))[0])-1
+    start_index = int(os.path.splitext(os.path.basename(first_img))[0])-1
 
-    it = range(1, len(prediction_folder_adacof))
+    it = range(1, num_img)
 
     for i in tqdm(iterable=it, total=len(it)):
         # Load reference images
@@ -229,9 +240,16 @@ def create_images(args, testset, test_path, inter_path):
         start_index = int(os.path.splitext(os.path.basename(inter_image_adacof[0]))[0])-1
 
         for image_idx in range(len(inter_image_adacof) - 1): # TODO: Could be that error is missing one entry?
-            draw_difference(np.asarray(Image.open(inter_image_adacof[image_idx])),
-                            np.asarray(Image.open(inter_image_phasenet[image_idx])),
-                            np.asarray(Image.open(inter_image_fusion[image_idx])),
+            if args.adacof:
+                adacof_img = np.asarray(Image.open(inter_image_adacof[image_idx]))
+            if args.phase:
+                phase_img = np.asarray(Image.open(inter_image_phasenet[image_idx]))
+            if args.fusion:
+                fusion_img = np.asarray(Image.open(inter_image_fusion[image_idx]))
+            
+            draw_difference(adacof_img,
+                            phase_img,
+                            fusion_img,
                             np.asarray(Image.open(ground_truth[start_index + image_idx])),
                             out, error[image_idx], image_idx)
         
@@ -411,15 +429,15 @@ def eval(args):
     # Show Results
     i = 0
     if args.adacof:
-        results_adacof = [r[i] for r in results_np]
+        results_adacof = [r[:,i] for r in results_np]
         draw_measurements(args, args.test_sets, results_adacof, 'AdaCoF')
         i = i + 1
     if args.phase:
-        results_phasenet = [r[i] for r in results_np]
+        results_phasenet = [r[:,i] for r in results_np]
         draw_measurements(args, args.test_sets, results_phasenet, 'Phasenet')
         i = i + 1
     if args.fusion:
-        results_fusion = [r[i] for r in results_np]
+        results_fusion = [r[:,i] for r in results_np]
         draw_measurements(args, args.test_sets, results_fusion, 'Fusion')
         i = i + 1
 

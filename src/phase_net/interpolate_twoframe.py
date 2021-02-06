@@ -23,6 +23,8 @@ parser.add_argument('--first_frame', type=str, default='./sample_twoframe/0.png'
 parser.add_argument('--second_frame', type=str, default='./sample_twoframe/1.png')
 parser.add_argument('--output_frame', type=str, default='./output.png')
 
+parser.add_argument('--high_level', action='store_true')
+
 transform = transforms.Compose([transforms.ToTensor()])
 
 def main():
@@ -55,6 +57,14 @@ def interp(args):
         scale_factor=np.sqrt(2),
         device=device,
     )
+    
+    # High level 
+    if args.high_level:
+        ada_pyr = pyr.filter(frame_res)
+        ada_hl = ada_pyr.high_level.clone().detach()
+        del ada_pyr
+        del frame_ada_res
+        torch.cuda.empty_cache()
 
     # Create PhaseNet
     phase_net = PhaseNet(pyr, device)
@@ -80,6 +90,9 @@ def interp(args):
         # Predict intermediate frame
         with torch.no_grad():
             vals_r = phase_net(vals_normalized)
+
+        if args.high_level:
+            vals_r.high_level[:] = ada_hl[c]
 
         img_r = pyr.inv_filter(vals_r).detach().cpu()
         result.append(img_r)
