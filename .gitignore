@@ -9,3 +9,6 @@ Testset/*
 output_*/
 do_not_commit.py
 Evaluation/
+src/**/*.png
+src/**/*.PNG
+src/**/*.jpg

@@ -33,6 +33,7 @@ parser.add_argument('--test_sets', type=str, nargs='+',
     default=['airboard_1', 'airplane_landing', 'airtable_3', 'basketball_1', 'water_ski_2', 'yoyo', \
             'MODE_SH0280', 'MODE_SH0440', 'MODE_SH0450', 'MODE_SH0740', 'MODE_SH0780', 'MODE_SH1010', 'MODE_SH1270', \
             'Flashlight', 'firework', 'lights', 'sun'])
+#parser.add_argument('--combine-results', type=str, nargs='+', action='append')
 
 # Adacof Parameters
 parser.add_argument('--adacof_model', type=str, default='src.adacof.models.adacofnet')
@@ -234,10 +235,10 @@ def create_images(args, testset, test_path, inter_path):
         inter_image_adacof = [os.path.join(inter_path, i, 'adacof', interpolate) for interpolate in sorted(os.listdir(os.path.join(inter_path, i, 'adacof')))]
         inter_image_phasenet = [os.path.join(inter_path, i, 'phasenet', interpolate) for interpolate in sorted(os.listdir(os.path.join(inter_path, i, 'phasenet')))]
         inter_image_fusion = [os.path.join(inter_path, i, 'fusion', interpolate) for interpolate in sorted(os.listdir(os.path.join(inter_path, i, 'fusion')))]
-        error = np.load("Evaluation/result_" + i + ".npy")
+        error = np.load(os.path.join(args.base_dir, 'result_{}.npy'.format(i)))
 
         # Skip ground truth pictures if it has offset (max_num)
-        start_index = int(os.path.splitext(os.path.basename(inter_image_adacof[0]))[0])-1
+        start_index = int(os.path.splitext(os.path.basename(inter_image_adacof[0]))[0])
 
         for image_idx in range(len(inter_image_adacof) - 1): # TODO: Could be that error is missing one entry?
             if args.adacof:
@@ -368,6 +369,7 @@ def draw_measurements(args, datasets, datasets_results, title):
     plt.plot(y_pos, max_data[:,0], 'o', label='MAX')
     plt.xticks(y_pos, datasets)
     plt.grid()
+    plt.ylim(bottom=0)
     plt.title('SSIM')
     handles, labels = plt.gca().get_legend_handles_labels()
     plt.legend([handles[idx] for idx in legend_order],[labels[idx] for idx in legend_order])
@@ -378,6 +380,7 @@ def draw_measurements(args, datasets, datasets_results, title):
     plt.plot(y_pos, max_data[:,1], 'o', label='MAX')
     plt.xticks(y_pos, datasets)
     plt.grid()
+    plt.ylim(bottom=0)
     plt.title('LPIPS')
     handles, labels = plt.gca().get_legend_handles_labels()
     plt.legend([handles[idx] for idx in legend_order],[labels[idx] for idx in legend_order])
@@ -388,6 +391,7 @@ def draw_measurements(args, datasets, datasets_results, title):
     plt.plot(y_pos, max_data[:,2], 'o', label='MAX')
     plt.xticks(y_pos, datasets)
     plt.grid()
+    plt.ylim(bottom=0)
     plt.title('PSNR')
     handles, labels = plt.gca().get_legend_handles_labels()
     plt.legend([handles[idx] for idx in legend_order],[labels[idx] for idx in legend_order])

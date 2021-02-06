@@ -71,7 +71,7 @@ def interp(args, high_level=False):
     shape_r = img_1.shape
 
     with torch.no_grad():
-        frame_out1, frame_out2, ada_res = adacof_model(
+        frame_out1, frame_out2, ada_res, _ = adacof_model(
             torch.as_tensor(img_1).permute(2, 0, 1).float().unsqueeze(0).to(device)/255,
             torch.as_tensor(img_2).permute(2, 0, 1).float().unsqueeze(0).to(device)/255)
         

@@ -20,10 +20,11 @@ class FusionNet(torch.nn.Module):
         )
 
 
-    def forward(self, adacof, phase, other):
+    def forward(self, adacof, phase, other, uncertainty_mask):
         x = torch.cat([adacof, phase, other], 1)
         alpha = self.net(x)
-
-        result_frame = alpha*adacof + (1-alpha)*phase
+        
+        fusion_frame = alpha*adacof + (1-alpha)*phase
+        result_frame = uncertainty_mask*fusion_frame + (1-uncertainty_mask)*adacof
   
         return result_frame

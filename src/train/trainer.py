@@ -75,10 +75,10 @@ class Trainer:
         # If we need the images of adacof for high_level in pyramid or to concat with fames in phasenet
         if self.args.mode == "fusion" or self.args.high_level:
             with torch.no_grad():
-                ada_frame1, ada_frame2, ada_pred = self.adacof_model(rgb_frame1, rgb_frame2)
-                ada_frame1 = rgb2lab(ada_frame1.reshape(-1, 3, ada_frame1.shape[2], ada_frame1.shape[3]))
-                ada_frame2 = rgb2lab(ada_frame2.reshape(-1, 3, ada_frame2.shape[2], ada_frame2.shape[3]))
-                ada_pred = rgb2lab(ada_pred.reshape(-1, 3, ada_pred.shape[2], ada_pred.shape[3]))
+                ada_frame1, ada_frame2, ada_pred, _ = self.adacof_model(rgb_frame1, rgb_frame2)
+                ada_frame1 = rgb2lab(ada_frame1)
+                ada_frame2 = rgb2lab(ada_frame2)
+                ada_pred = rgb2lab(ada_pred)
                  
                 ada_frame1 = ada_frame1.reshape(-1, ada_frame1.shape[2], ada_frame1.shape[3]).to(self.device).float()
                 ada_frame2 = ada_frame2.reshape(-1, ada_frame2.shape[2], ada_frame2.shape[3]).to(self.device).float()
@@ -138,8 +138,8 @@ class Trainer:
             lab_frame2 = rgb2lab(triple[2]).reshape((-1,) + hw).to(self.device)
 
             # Transform rgb images for adacof
-            rgb_frame1 = triple[0].reshape((1, -1,) + hw).to(self.device)
-            rgb_frame2 = triple[2].reshape((1, -1,) + hw).to(self.device)
+            rgb_frame1 = triple[0].to(self.device)
+            rgb_frame2 = triple[2].to(self.device)
 
             # Predict intermediate frames
             prediction, vals_pred, vals_target = self.predict(lab_frame1, lab_frame2, rgb_frame1, rgb_frame2, target)

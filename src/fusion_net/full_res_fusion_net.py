@@ -37,7 +37,7 @@ img_2 = np.array(Image.open('Testset/lights/121.png'))
 shape_r = img_1.shape
 
 with torch.no_grad():
-    frame_out1, frame_out2, _ = adacof_model(
+    frame_out1, frame_out2, _, _ = adacof_model(
         torch.as_tensor(img_1).permute(2, 0, 1).float().unsqueeze(0).to(device)/255,
         torch.as_tensor(img_2).permute(2, 0, 1).float().unsqueeze(0).to(device)/255)
     frame_out1, frame_out2 = frame_out1.squeeze(0).permute(1, 2, 0).cpu().numpy(), frame_out2.squeeze(0).permute(1, 2, 0).cpu().numpy()

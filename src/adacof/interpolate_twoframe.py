@@ -10,8 +10,8 @@ parser = argparse.ArgumentParser(description='Two-frame Interpolation')
 
 parser.add_argument('--gpu_id', type=int, default=0)
 parser.add_argument('--model', type=str, default='src.adacof.models.adacofnet')
-parser.add_argument('--checkpoint', type=str, default='./checkpoint/kernelsize_5/ckpt.pth')
-parser.add_argument('--config', type=str, default='./checkpoint/kernelsize_5/config.txt')
+parser.add_argument('--checkpoint', type=str, default='./src/adacof/checkpoint/kernelsize_5/ckpt.pth')
+parser.add_argument('--config', type=str, default='./src/adacof/checkpoint/kernelsize_5/config.txt')
 
 parser.add_argument('--kernel_size', type=int, default=5)
 parser.add_argument('--dilation', type=int, default=1)

@@ -215,9 +215,14 @@ class AdaCoFNet(torch.nn.Module):
         VarFlowMap1 = (Weight1 * ((MeanFlowMap1 - DeltaP1.permute(2, 0, 1, 3, 4))**2).permute(1, 2, 0, 3, 4)).sum(-3)
         VarFlowMap2 = (Weight2 * ((MeanFlowMap2 - DeltaP2.permute(2, 0, 1, 3, 4))**2).permute(1, 2, 0, 3, 4)).sum(-3)
 
-        # Calculate Uncetainty Mask
-        UncertaintyMask = torch.max(VarFlowMap1.sum(0), VarFlowMap2.sum(0))
+        # Calculate Uncertainty Mask
+        UncertaintyMask = torch.max(VarFlowMap1.sum(0), VarFlowMap2.sum(0)).detach()
         UncertaintyMask = torch.clip(UncertaintyMask, 0, 20)/20
+        UncertaintyMask = UncertaintyMask.unsqueeze(1)
         #UncertaintyMask = UncertaintyMask.permute(1,2,0).detach().cpu().numpy()
+        #print(frame1.shape)
+        #print(tensorAdaCoF2.shape)
+        #plt.imshow(UncertaintyMask, cmap='gray')
+        #plt.show()
 
-        return tensorAdaCoF1, tensorAdaCoF2, frame1
+        return tensorAdaCoF1, tensorAdaCoF2, frame1, UncertaintyMask

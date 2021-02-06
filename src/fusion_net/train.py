@@ -27,12 +27,12 @@ parser.add_argument('--train', type=str, default='./Trainset/vimeo/vimeo_triplet
 parser.add_argument('--load', type=str, default=None)
 
 # Learning Options
-parser.add_argument('--epochs', type=int, default=3, help='max epochs')
-parser.add_argument('--batch_size', type=int, default=16, help='batch size')
+parser.add_argument('--epochs', type=int, default=1, help='max epochs')
+parser.add_argument('--batch_size', type=int, default=8, help='batch size')
 parser.add_argument('--seed', type=int, default=0, help='seed')
 
 # Optimization specifications
-parser.add_argument('--lr', type=float, default=5e-4, help='learning rate')
+parser.add_argument('--lr', type=float, default=1e-3, help='learning rate')
 parser.add_argument('--lr_decay', type=int, default=0, help='learning rate decay per N epochs')
 parser.add_argument('--weight_decay', type=float, default=0, help='weight decay')
 
