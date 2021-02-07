@@ -196,15 +196,7 @@ class AdaCoFNet(torch.nn.Module):
         tensorAdaCoF2 = self.moduleAdaCoF(self.modulePad(frame2), Weight2, Alpha2, Beta2, self.dilation)
 
         frame1 = Occlusion * tensorAdaCoF1 + (1 - Occlusion) * tensorAdaCoF2
-        if h_padded:
-            tensorAdaCoF1 = tensorAdaCoF1[:, :, 0:h0, :]
-            tensorAdaCoF2 = tensorAdaCoF2[:, :, 0:h0, :]
-            frame1 = frame1[:, :, 0:h0, :]
-        if w_padded:
-            tensorAdaCoF1 = tensorAdaCoF2[:, :, :, 0:w0]
-            tensorAdaCoF2 = tensorAdaCoF2[:, :, :, 0:w0]
-            frame1 = frame1[:, :, :, 0:w0]
-            
+        
         # Mean and Variance Flow Map
         DeltaP1 = torch.stack([Alpha1, Beta1], 0)
         DeltaP2 = torch.stack([Alpha2, Beta2], 0)
@@ -219,6 +211,26 @@ class AdaCoFNet(torch.nn.Module):
         UncertaintyMask = torch.max(VarFlowMap1.sum(0), VarFlowMap2.sum(0)).detach()
         UncertaintyMask = torch.clip(UncertaintyMask, 0, 20)/20
         UncertaintyMask = UncertaintyMask.unsqueeze(1)
+
+        if h_padded:
+            tensorAdaCoF1 = tensorAdaCoF1[:, :, 0:h0, :]
+            tensorAdaCoF2 = tensorAdaCoF2[:, :, 0:h0, :]
+            MeanFlowMap1 = MeanFlowMap1[:, :, 0:h0, :]
+            MeanFlowMap2 = MeanFlowMap2[:, :, 0:h0, :]
+            VarFlowMap1 = VarFlowMap1[:, :, 0:h0, :]
+            VarFlowMap2 = VarFlowMap2[:, :, 0:h0, :]
+            UncertaintyMask = UncertaintyMask[:, :, 0:h0, :]
+            frame1 = frame1[:, :, 0:h0, :]
+        if w_padded:
+            tensorAdaCoF1 = tensorAdaCoF2[:, :, :, 0:w0]
+            tensorAdaCoF2 = tensorAdaCoF2[:, :, :, 0:w0]
+            MeanFlowMap1 = MeanFlowMap1[:, :, :, 0:w0]
+            MeanFlowMap2 = MeanFlowMap2[:, :, :, 0:w0]
+            VarFlowMap1 = VarFlowMap1[:, :, :, 0:w0]
+            VarFlowMap2 = VarFlowMap2[:, :, :, 0:w0]
+            UncertaintyMask = UncertaintyMask[:, :, :, 0:w0]
+            frame1 = frame1[:, :, :, 0:w0]
+            
         #UncertaintyMask = UncertaintyMask.permute(1,2,0).detach().cpu().numpy()
         #print(frame1.shape)
         #print(tensorAdaCoF2.shape)

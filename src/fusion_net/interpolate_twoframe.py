@@ -15,6 +15,7 @@ from PIL import Image
 from src.adacof.models import Model
 from src.phase_net.phase_net import PhaseNet
 from types import SimpleNamespace
+from src.fusion_net.fusion_net import FusionNet
 
 import matplotlib.pyplot as plt
 
@@ -28,7 +29,7 @@ parser.add_argument('--adacof_config', type=str, default='./src/adacof/checkpoin
 parser.add_argument('--adacof_kernel_size', type=int, default=5)
 parser.add_argument('--adacof_dilation', type=int, default=1)
 
-parser.add_argument('--checkpoint', type=str, default='./src/fusion_net/fusion_net.pt')
+parser.add_argument('--checkpoint', type=str, default='./src/fusion_net/fusion_net1.pt')
 
 parser.add_argument('--first_frame', type=str, default='./sample_twoframe/0.png')
 parser.add_argument('--second_frame', type=str, default='./sample_twoframe/1.png')
@@ -71,7 +72,7 @@ def interp(args, high_level=False):
     shape_r = img_1.shape
 
     with torch.no_grad():
-        frame_out1, frame_out2, ada_res, _ = adacof_model(
+        frame_out1, frame_out2, ada_res, uncertainty_mask = adacof_model(
             torch.as_tensor(img_1).permute(2, 0, 1).float().unsqueeze(0).to(device)/255,
             torch.as_tensor(img_2).permute(2, 0, 1).float().unsqueeze(0).to(device)/255)
         
@@ -106,23 +107,36 @@ def interp(args, high_level=False):
         ada_pyr = pyr.filter(frame_res)
         ada_hl = ada_pyr.high_level.clone().detach()
         del ada_pyr
-        del frame_ada_res
         torch.cuda.empty_cache()
 
     # Create FusionNet
-    fusion_net = PhaseNet(pyr, device, num_img=4 if args.model == 1 else 3)
-    fusion_net.load_state_dict(torch.load(args.checkpoint))
+    if args.model == 1:
+        num_img = 4
+        load_path = './src/fusion_net/fusion_net1.pt'
+    if args.model == 2:
+        num_img = 3
+        load_path = './src/fusion_net/fusion_net2.pt'
+    if args.model == 3:
+        num_img = 2
+        load_path = './src/phase_net/phase_net.pt'
+    fusion_net = PhaseNet(pyr, device, num_img=num_img)
+    fusion_net.load_state_dict(torch.load(load_path))
     fusion_net.eval()
 
     result = []
 
     # Predict per channel, so we save memory
     for c in range(3):
-        imgs = torch.stack((img_1[c], img_2[c], frame_1[c], frame_2[c]), 0) if args.model == 1 else torch.stack((img_1[c], img_2[c], frame_res[c]), 0)
+        if args.model == 1:
+            imgs = torch.stack((img_1[c], img_2[c], frame_1[c], frame_2[c]), 0)
+        elif args.model == 2:
+            imgs = torch.stack((img_1[c], img_2[c], frame_res[c]), 0)
+        elif args.model == 3:
+            imgs = torch.stack((img_1[c], img_2[c]), 0)
 
         # combine images into one big batch and then create the values and separate
-        vals = pyr.filter(imgs)
-        vals_list = separate_vals(vals, 4 if args.model == 1 else 3)
+        vals = pyr.filter(imgs.float())
+        vals_list = separate_vals(vals, num_img)
         vals_t = vals_list[-1]
         vals_inp = get_concat_layers_inf(pyr, vals_list)
         inp = fusion_net.normalize_vals(vals_inp)
@@ -148,8 +162,21 @@ def interp(args, high_level=False):
     # Put picture together
     result = torch.cat(result, 0)
     img_p = lab2rgb_single(result, light=100, ab_mul=128, ab_max=0)
-
+    
     img_p = img_p[:, :shape_r[0], :shape_r[1]]
+    
+    # Fusion Net prediction
+    if args.model == 3:
+        # Fusion Net prediction
+        fusion_net3 = FusionNet().to(device)
+        fusion_net3.load_state_dict(torch.load('./src/fusion_net/fusion_net3.pt'))
+        
+        phase_pred = img_p.to(device).unsqueeze(0).float()
+        ada_pred = ada_res.to(device).float()
+        other = torch.cat([img_1[:, :shape_r[0], :shape_r[1]].reshape(-1, 3, shape_r[0], shape_r[1]), img_2[:, :shape_r[0], :shape_r[1]].reshape(-1, 3, shape_r[0], shape_r[1])], 1).float()
+        
+        final_pred = fusion_net3(ada_pred, phase_pred, other, uncertainty_mask)
+        img_p = final_pred.reshape(-1, final_pred.shape[2], final_pred.shape[3])
 
     imwrite(img_p.clone(), args.output_frame, range=(0, 1))
 
