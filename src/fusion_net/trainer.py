@@ -10,7 +10,7 @@ from src.train.loss import *
 from src.train.utils import *
 from src.train.transform import *
 from src.train.loss import *
-from piq import ssim, SSIMLoss
+from piq import ssim, SSIMLoss, LPIPS
 from types import SimpleNamespace
 from skimage import io
 
@@ -31,7 +31,7 @@ class Trainer:
         self.pyr = my_pyr
         self.current_epoch = start_epoch
         self.device = my_pyr.device
-        self.criterion = SSIMLoss(data_range=1.)
+        self.criterion = LPIPS()
 
         # Models
         self.fusion_net = fusion_net
@@ -135,6 +135,8 @@ class Trainer:
 
             # Calculate the loss
             prediction = torch.clip(prediction, 0, 1)
+            prediction = prediction.reshape(-1, 3, prediction.shape[1], prediction.shape[2]).float()
+            target = target.reshape(-1, 3, target.shape[1], target.shape[2]).float()
             loss = self.criterion(prediction, target)
 
             # Update net using backprop and gradient descent

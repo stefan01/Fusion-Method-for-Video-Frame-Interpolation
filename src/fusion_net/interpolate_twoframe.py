@@ -93,11 +93,11 @@ def interp(args, loaded_adacof_model=None, loaded_fusion_net=None, high_level=Fa
     img_2_pad = pad_img(img_2/255)
 
     # To tensors
-    img_1 = rgb2lab_single(torch.as_tensor(img_1_pad).permute(2, 0, 1).float(), light=100, ab_mul=128, ab_max=0).to(device)
-    img_2 = rgb2lab_single(torch.as_tensor(img_2_pad).permute(2, 0, 1).float(), light=100, ab_mul=128, ab_max=0).to(device)
-    frame_1 = rgb2lab_single(torch.as_tensor(frame_out1_pad).permute(2, 0, 1).float(), light=100, ab_mul=128, ab_max=0).to(device)
-    frame_2 = rgb2lab_single(torch.as_tensor(frame_out2_pad).permute(2, 0, 1).float(), light=100, ab_mul=128, ab_max=0).to(device)
-    frame_res = rgb2lab_single(torch.as_tensor(frame_ada_res_pad).permute(2, 0, 1).float(), light=100, ab_mul=128, ab_max=0).to(device)    
+    img_1 = rgb2lab_single(torch.as_tensor(img_1_pad).permute(2, 0, 1).float()).to(device)
+    img_2 = rgb2lab_single(torch.as_tensor(img_2_pad).permute(2, 0, 1).float()).to(device)
+    frame_1 = rgb2lab_single(torch.as_tensor(frame_out1_pad).permute(2, 0, 1).float()).to(device)
+    frame_2 = rgb2lab_single(torch.as_tensor(frame_out2_pad).permute(2, 0, 1).float()).to(device)
+    frame_res = rgb2lab_single(torch.as_tensor(frame_ada_res_pad).permute(2, 0, 1).float()).to(device)    
 
     # Build pyramid
     pyr = Pyramid(
@@ -171,7 +171,7 @@ def interp(args, loaded_adacof_model=None, loaded_fusion_net=None, high_level=Fa
 
     # Put picture together
     result = torch.cat(result, 0)
-    img_p = lab2rgb_single(result, light=100, ab_mul=128, ab_max=0)
+    img_p = lab2rgb_single(result)
     
     img_p = img_p[:, :shape_r[0], :shape_r[1]]
     
@@ -181,12 +181,14 @@ def interp(args, loaded_adacof_model=None, loaded_fusion_net=None, high_level=Fa
         fusion_net3 = FusionNet().to(device)
         fusion_net3.load_state_dict(torch.load('./src/fusion_net/fusion_net3.pt'))
         
-        phase_pred = result.to(device).unsqueeze(0).float()
-        ada_pred = ada_res.to(device).float()
+        phase_pred = result[:, :shape_r[0], :shape_r[1]].to(device).unsqueeze(0).float()
+        ada_pred = rgb2lab(ada_res).to(device).float()
         other = torch.cat([img_1[:, :shape_r[0], :shape_r[1]].reshape(-1, 3, shape_r[0], shape_r[1]), img_2[:, :shape_r[0], :shape_r[1]].reshape(-1, 3, shape_r[0], shape_r[1])], 1).float()
         
         final_pred = fusion_net3(ada_pred, phase_pred, other, uncertainty_mask)
         img_p = final_pred.reshape(-1, final_pred.shape[2], final_pred.shape[3])
+        img_p = lab2rgb_single(img_p)
+
 
     imwrite(img_p.clone(), args.output_frame, range=(0, 1))
 
