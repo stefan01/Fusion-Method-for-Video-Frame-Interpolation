@@ -57,7 +57,7 @@ def video_to_images(input_video, output_directory, crop=False, resize=False, new
         image = cv2.resize(image, newSize)
 
         # Write Image
-        cv2.imwrite(f'{output_directory}/{str(i).zfill(3)}.png', image)
+        cv2.imwrite(f'{output_directory}/{str(i).zfill(4)}.png', image)
         success, image = vid.read()
         i += 1
 
