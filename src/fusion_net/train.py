@@ -32,7 +32,7 @@ parser.add_argument('--batch_size', type=int, default=8, help='batch size')
 parser.add_argument('--seed', type=int, default=0, help='seed')
 
 # Optimization specifications
-parser.add_argument('--lr', type=float, default=1e-3, help='learning rate')
+parser.add_argument('--lr', type=float, default=1e-4, help='learning rate')
 parser.add_argument('--lr_decay', type=int, default=0, help='learning rate decay per N epochs')
 parser.add_argument('--weight_decay', type=float, default=0, help='weight decay')
 
@@ -103,7 +103,7 @@ def main():
     # Train
     while not my_trainer.terminate():
         my_trainer.train()
-        torch.save(model.state_dict(), out_dir + f'/checkpoint/model_{my_trainer.current_epoch}.pt')
+        torch.save(fusion_net.state_dict(), out_dir + f'/checkpoint/model_{my_trainer.current_epoch}.pt')
 
     loss_hist = np.asarray(my_trainer.loss_history)
     np.savetxt(out_dir + '/loss_hist.txt', loss_hist)

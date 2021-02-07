@@ -12,7 +12,6 @@ class PhaseNet(nn.Module):
     def __init__(self, pyr, device, num_img=2):
         super(PhaseNet, self).__init__()
         self.pyr = pyr
-        self.height = pyr.height
         self.device = device
         self.num_img = num_img
         self.layers = self.create_architecture()
@@ -89,7 +88,7 @@ class PhaseNet(nn.Module):
 
             amplitudes.append((vals.amplitude[i].reshape(batch_size, -1).permute(1, 0) * max_ampl).permute(1, 0).reshape(amp_shape))
 
-        for _ in range(self.height-2-m):
+        for _ in range(self.pyr.height-2-m):
             phases.append(0)
             amplitudes.append(0)
 
@@ -108,7 +107,7 @@ class PhaseNet(nn.Module):
     def forward(self, vals, m=None):
         """ Forward pass through network. """
         if m is None:
-            m = self.height-2
+            m = self.pyr.height-2
 
         # Get output of first phase-net block for low level prediction
         feature, prediction = self.layers[0](vals.low_level)

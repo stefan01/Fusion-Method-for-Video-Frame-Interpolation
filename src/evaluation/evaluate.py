@@ -18,6 +18,11 @@ import src.adacof.interpolate_twoframe as adacof_interp
 import src.phase_net.interpolate_twoframe as phasenet_interp
 import src.fusion_net.interpolate_twoframe as fusion_interp
 
+from src.adacof.models import Model
+from src.phase_net.phase_net import PhaseNet
+from src.fusion_net.fusion_net import FusionNet
+from src.train.pyramid import Pyramid
+
 parser = argparse.ArgumentParser(description='Evaluation')
 
 # Evaluation Parameters
@@ -93,7 +98,7 @@ def interpolate_phasenet(args, a, b, output):
             ))
         torch.cuda.empty_cache()
 
-def interpolate_fusion(args, a, b, output):
+def interpolate_fusion(args, adacof_model, fusion_net, a, b, output):
     if not os.path.exists(output):
         print('Interpolating {} and {} to {} with fusion method'.format(a, b, output))
         with torch.no_grad():
@@ -108,13 +113,15 @@ def interpolate_fusion(args, a, b, output):
                 adacof_checkpoint=args.adacof_checkpoint,
                 adacof_config=args.adacof_config,
                 checkpoint=args.fusion_checkpoint,
-                model=args.fusion_model
+                model=args.fusion_model,
+                loaded_adacof_model=adacof_model,
+                loaded_fusion_net=fusion_net
             ))
         torch.cuda.empty_cache()
 
 # Interpolates triples of images
 # from a dataset (list of filenames)
-def interpolate_dataset(args, dataset_path, max_num=None):
+def interpolate_dataset(args, adacof_model, fusion_net, dataset_path, max_num=None):
     dataset_name = os.path.basename(dataset_path)
     print('Interpolating Dataset {}'.format(dataset_name))
     dataset = sorted(glob.glob('{}/*.png'.format(dataset_path)))
@@ -130,8 +137,12 @@ def interpolate_dataset(args, dataset_path, max_num=None):
     
     it = range(start, end)
     print(dataset_path)
+
+    print('Start: {}'.format(start))
+    print('End: {}'.format(end))
+
     for i in tqdm(iterable=it, total=len(it)):
-        interpolated_filename = '{}.png'.format(str(i).zfill(3))
+        interpolated_filename = '{}.png'.format(str(i+1).zfill(4))
         output_path_adacof = os.path.join(args.base_dir, args.img_output, dataset_name, 'adacof')
         output_path_phasenet = os.path.join(args.base_dir, args.img_output, dataset_name, 'phasenet')
         output_path_fusion = os.path.join(args.base_dir, args.img_output, dataset_name, 'fusion')
@@ -149,7 +160,7 @@ def interpolate_dataset(args, dataset_path, max_num=None):
             interpolate_phasenet(args, dataset[i], dataset[i+2], output_path_phasenet_image)
         if args.fusion:
             os.makedirs(output_path_fusion, exist_ok=True)
-            interpolate_fusion(args, dataset[i], dataset[i+2], output_path_fusion_image)
+            interpolate_fusion(args, adacof_model, fusion_net, dataset[i], dataset[i+2], output_path_fusion_image)
 
 # Evaluates a dataset.
 # Takes interpolated images a and c
@@ -238,7 +249,7 @@ def create_images(args, testset, test_path, inter_path):
         error = np.load(os.path.join(args.base_dir, 'result_{}.npy'.format(i)))
 
         # Skip ground truth pictures if it has offset (max_num)
-        start_index = int(os.path.splitext(os.path.basename(inter_image_adacof[0]))[0])
+        start_index = int(os.path.splitext(os.path.basename(inter_image_adacof[0]))[0]) - 1
 
         for image_idx in range(len(inter_image_adacof) - 1): # TODO: Could be that error is missing one entry?
             if args.adacof:
@@ -247,6 +258,11 @@ def create_images(args, testset, test_path, inter_path):
                 phase_img = np.asarray(Image.open(inter_image_phasenet[image_idx]))
             if args.fusion:
                 fusion_img = np.asarray(Image.open(inter_image_fusion[image_idx]))
+
+            print('AdaCoF: {}'.format(inter_image_adacof[image_idx]))
+            print('Phase: {}'.format(inter_image_phasenet[image_idx]))
+            print('Fusion: {}'.format(inter_image_fusion[image_idx]))
+            print('Ground truth: {}'.format(ground_truth[start_index + image_idx]))
             
             draw_difference(adacof_img,
                             phase_img,
@@ -261,7 +277,7 @@ def create_images(args, testset, test_path, inter_path):
 
 
 def draw_difference(pred_img_adacof, pred_img_phasenet, pred_img_fusion, target_img, out_path, error, number):
-    name = 'img_{}_{}.png'.format(str(number).zfill(3), error[0, 0])
+    name = 'img_{}_{}.png'.format(str(number).zfill(4), error[0, 0])
 
     if os.path.exists(out_path + "/" + name):
         return
@@ -403,14 +419,48 @@ def main():
     eval(parser.parse_args())
 
 def eval(args):
+    device = torch.device('cuda:{}'.format(args.gpu_id))
     random.seed(args.seed)
     img_output_dir = os.path.join(args.base_dir, args.img_output)
     os.makedirs(img_output_dir, exist_ok=True)
 
+    # Create AdaCoFNet
+    adacof_args = SimpleNamespace(
+        gpu_id=args.gpu_id,
+        model=args.fusion_adacof_model,
+        kernel_size=args.adacof_kernel_size,
+        dilation=args.adacof_dilation,
+        config=args.adacof_config
+    )
+    adacof_model = Model(adacof_args)
+    adacof_model.eval()
+    checkpoint = torch.load(args.adacof_checkpoint, map_location=torch.device('cpu'))
+    adacof_model.load(checkpoint['state_dict'])
+
+    # Create FusionNet
+    if args.fusion_model == 1:
+        num_img = 4
+        load_path = './src/fusion_net/fusion_net1.pt'
+    if args.fusion_model == 2:
+        num_img = 3
+        load_path = './src/fusion_net/fusion_net2.pt'
+    if args.fusion_model == 3:
+        num_img = 2
+        load_path = './src/phase_net/phase_net.pt'
+    pyr = Pyramid(
+        height=4,
+        nbands=4,
+        scale_factor=np.sqrt(2),
+        device=device,
+    )
+    fusion_net = PhaseNet(pyr, device, num_img=num_img)
+    fusion_net.load_state_dict(torch.load(load_path))
+    fusion_net.eval()
+
     # Interpolate
     for testset in args.test_sets:
         testset_path = os.path.join('Testset', testset)
-        interpolate_dataset(args, testset_path, max_num=args.max_num)
+        interpolate_dataset(args, adacof_model, fusion_net, testset_path, max_num=args.max_num)
 
     # Evaluate Results
     results_np = []

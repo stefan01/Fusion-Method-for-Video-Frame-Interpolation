@@ -11,6 +11,7 @@ import warnings
 import torchvision.transforms as transforms
 from types import SimpleNamespace
 from src.adacof.models import Model
+from src.fusion_net.fusion_net import FusionNet
 
 # Warnings and device
 warnings.filterwarnings("ignore")
@@ -37,7 +38,7 @@ img_2 = np.array(Image.open('Testset/lights/121.png'))
 shape_r = img_1.shape
 
 with torch.no_grad():
-    frame_out1, frame_out2, _, _ = adacof_model(
+    frame_out1, frame_out2, ada_pred, uncertainty_mask = adacof_model(
         torch.as_tensor(img_1).permute(2, 0, 1).float().unsqueeze(0).to(device)/255,
         torch.as_tensor(img_2).permute(2, 0, 1).float().unsqueeze(0).to(device)/255)
     frame_out1, frame_out2 = frame_out1.squeeze(0).permute(1, 2, 0).cpu().numpy(), frame_out2.squeeze(0).permute(1, 2, 0).cpu().numpy()
@@ -70,7 +71,7 @@ pyr = Pyramid(
 
 # Create FusionNet
 fusion_net = PhaseNet(pyr, device, num_img=4)
-fusion_net.load_state_dict(torch.load('./src/fusion_net/fusion_net.pt'))
+fusion_net.load_state_dict(torch.load('./src/fusion_net/fusion_net1.pt'))
 fusion_net.eval()
 
 result = []
@@ -106,5 +107,21 @@ img_p = lab2rgb_single(result)
 
 img_p = img_p[:, :shape_r[0], :shape_r[1]]
 
+print(shape_r)
+
+#print(img_p.shape, ada_pred.shape, uncertainty_mask.shape)
+
+# Fusion Net prediction
+fusion_net3 = FusionNet().to(device)
+fusion_net3.load_state_dict(torch.load('./src/fusion_net/fusion_net3.pt'))
+
+phase_pred = img_p.to(device).unsqueeze(0).float()
+ada_pred = ada_pred.to(device).float()
+other = torch.cat([img_1[:, :shape_r[0], :shape_r[1]].reshape(-1, 3, shape_r[0], shape_r[1]), img_2[:, :shape_r[0], :shape_r[1]].reshape(-1, 3, shape_r[0], shape_r[1])], 1).float()
+
+final_pred = fusion_net3(ada_pred, phase_pred, other, uncertainty_mask)
+final_pred = final_pred.reshape(-1, final_pred.shape[2], final_pred.shape[3])
+
+
 # Show frame
-transforms.ToPILImage()(img_p).show()
+transforms.ToPILImage()(final_pred).show()

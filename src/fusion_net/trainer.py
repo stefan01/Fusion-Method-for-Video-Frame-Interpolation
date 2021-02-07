@@ -10,6 +10,7 @@ from src.train.loss import *
 from src.train.utils import *
 from src.train.transform import *
 from src.train.loss import *
+from piq import ssim, SSIMLoss
 from types import SimpleNamespace
 from skimage import io
 
@@ -30,7 +31,7 @@ class Trainer:
         self.pyr = my_pyr
         self.current_epoch = start_epoch
         self.device = my_pyr.device
-        self.criterion = nn.L1Loss()
+        self.criterion = SSIMLoss(data_range=1.)
 
         # Models
         self.fusion_net = fusion_net
@@ -133,6 +134,7 @@ class Trainer:
             prediction = self.predict(lab_frame1, lab_frame2, rgb_frame1, rgb_frame2, target)
 
             # Calculate the loss
+            prediction = torch.clip(prediction, 0, 1)
             loss = self.criterion(prediction, target)
 
             # Update net using backprop and gradient descent
@@ -145,9 +147,7 @@ class Trainer:
             self.loss_history.append(loss)
 
             if batch_idx % 100 == 0:
-                self.test(idx=int(batch_idx/100), paths=['counter_examples/basketball/pad_00033.jpg', 'counter_examples/basketball/pad_00034.jpg', 'counter_examples/basketball/pad_00035.jpg'], name='basketball')
-                self.test(idx=int(batch_idx/100), paths=['counter_examples/Clip11/pad_033.png', 'counter_examples/Clip11/pad_034.png', 'counter_examples/Clip11/pad_035.png'], name='Clip11')
-                self.test(idx=int(batch_idx/100), paths=['counter_examples/Clip2/pad_010.png', 'counter_examples/Clip2/pad_011.png', 'counter_examples/Clip2/pad_012.png'], name='Clip2')
+                self.test(idx=int(batch_idx/100), paths=['counter_examples/lights/001.png', 'counter_examples/lights/002.png', 'counter_examples/lights/003.png'], name='basketball')
                 print('{:<13s}{:<14s}{:<6s}{:<16s}{:<12s}{:<20.16f}'.format('Train Epoch: ',
                       '[' + str(self.current_epoch) + '/' + str(self.args.epochs) + ']', 'Step: ',
                       '[' + str(batch_idx) + '/' + str(self.max_step) + ']', 'train loss: ', loss.item()))
