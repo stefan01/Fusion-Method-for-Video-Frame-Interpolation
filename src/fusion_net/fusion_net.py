@@ -15,16 +15,16 @@ class FusionNet(torch.nn.Module):
                 nn.ReLU(),
                 nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1),
                 nn.ReLU(),
-                nn.Conv2d(64, 1, kernel_size=3, stride=1, padding=1),
+                nn.Conv2d(64, 3, kernel_size=3, stride=1, padding=1),
                 nn.Sigmoid()
         )
 
 
     def forward(self, adacof, phase, other, uncertainty_mask):
         x = torch.cat([adacof, phase, other, uncertainty_mask], 1)
-        alpha = self.net(x)
+        fusion_frame = self.net(x)
         
-        fusion_frame = alpha*adacof + (1-alpha)*phase
+        #fusion_frame = alpha*adacof + (1-alpha)*phase
         #print(torch.max(uncertainty_mask), torch.mean(uncertainty_mask.reshape(-1)))
         #result_frame = uncertainty_mask*fusion_frame + (1-uncertainty_mask)*adacof
 

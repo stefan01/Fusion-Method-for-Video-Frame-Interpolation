@@ -44,27 +44,30 @@ def to_variable(x):
         x = x.cuda()
     return Variable(x)
 
-def main():
-    interp(parser.parse_args())
+def main(loaded_adacof_model, loaded_fusion_net):
+    interp(parser.parse_args(), loaded_fusion_net)
 
-def interp(args, high_level=False):
+def interp(args, loaded_adacof_model=None, loaded_fusion_net=None, high_level=False):
     torch.cuda.set_device(args.gpu_id)
     # Warnings and device
     warnings.filterwarnings("ignore")
     device = torch.device('cuda:{}'.format(args.gpu_id))
 
     # Adacof model
-    adacof_args = SimpleNamespace(
-        gpu_id=args.gpu_id,
-        model=args.adacof_model,
-        kernel_size=args.adacof_kernel_size,
-        dilation=args.adacof_dilation,
-        config=args.adacof_config
-    )
-    adacof_model = Model(adacof_args)
-    adacof_model.eval()
-    checkpoint = torch.load(args.adacof_checkpoint, map_location=torch.device('cpu'))
-    adacof_model.load(checkpoint['state_dict'])
+    if loaded_adacof_model:
+        adacof_model = loaded_adacof_model
+    else:
+        adacof_args = SimpleNamespace(
+            gpu_id=args.gpu_id,
+            model=args.adacof_model,
+            kernel_size=args.adacof_kernel_size,
+            dilation=args.adacof_dilation,
+            config=args.adacof_config
+        )
+        adacof_model = Model(adacof_args)
+        adacof_model.eval()
+        checkpoint = torch.load(args.adacof_checkpoint, map_location=torch.device('cpu'))
+        adacof_model.load(checkpoint['state_dict'])
 
     # Import images
     img_1 = np.array(Image.open(args.first_frame))
@@ -119,9 +122,14 @@ def interp(args, high_level=False):
     if args.model == 3:
         num_img = 2
         load_path = './src/phase_net/phase_net.pt'
-    fusion_net = PhaseNet(pyr, device, num_img=num_img)
-    fusion_net.load_state_dict(torch.load(load_path))
-    fusion_net.eval()
+    
+    if loaded_fusion_net:
+        fusion_net = loaded_fusion_net
+        fusion_net.pyr = pyr
+    else:
+        fusion_net = PhaseNet(pyr, device, num_img=num_img)
+        fusion_net.load_state_dict(torch.load(load_path))
+        fusion_net.eval()
 
     result = []
 
@@ -182,4 +190,4 @@ def interp(args, high_level=False):
 
 
 if __name__ == "__main__":
-    main()
+    main(None, None)
