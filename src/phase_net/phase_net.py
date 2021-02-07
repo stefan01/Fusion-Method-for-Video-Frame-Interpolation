@@ -21,6 +21,13 @@ class PhaseNet(nn.Module):
 
     def create_architecture(self):
         """ Create phase net architecture. """
+        if self.num_img == 3:
+            return nn.ModuleList([
+                PhaseNetBlock(self.num_img, 64, self.num_img - 1, (1, 1), self.device),
+                PhaseNetBlock(64 + self.num_img - 1 + 8 * self.num_img, 64, self.num_img * 4, (1, 1), self.device),
+                PhaseNetBlock(64 + self.num_img * 4 + 8 * self.num_img, 64, self.num_img * 4, (1, 1), self.device),
+                *[PhaseNetBlock(64 + self.num_img * 4 + 8 * self.num_img, 64, self.num_img * 4, (3 ,3), self.device) for _ in range(5)]
+            ])
         return nn.ModuleList([
             PhaseNetBlock(self.num_img, 64, 1, (1, 1), self.device),
             PhaseNetBlock(64 + 1 + 8 * self.num_img, 64, 8, (1, 1), self.device),
@@ -119,7 +126,7 @@ class PhaseNet(nn.Module):
         #    low_level = fusion_alpha * low_level + (1-fusion_alpha) * ada_low_level
         #el
         if self.num_img == 3:
-            fusion_alpha = (prediction[:, 1]+1)
+            fusion_alpha = (prediction[:, 1]+1)/2
             low_level = fusion_alpha * low_level + (1-fusion_alpha) * vals.low_level[:, 2]
 
         # Extra dimension for low level
@@ -167,6 +174,7 @@ class PhaseNet(nn.Module):
             #el
             if self.num_img == 3:
                 fusion_beta = (prediction[:, 8:12]+1)/2
+                print(fusion_beta.mean(-1).mean(-1))
                 amplitude = fusion_beta * amplitude + (1-fusion_beta) * vals.amplitude[idx][:, 8:12]
 
             # append prediction to phase and amplitude
