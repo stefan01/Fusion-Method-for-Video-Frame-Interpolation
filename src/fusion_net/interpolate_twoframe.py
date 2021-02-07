@@ -37,6 +37,8 @@ parser.add_argument('--output_frame', type=str, default='./output.png')
 
 parser.add_argument('--model', type=int, default=1)
 
+parser.add_argument('--high_level', action='store_true')
+
 transform = transforms.Compose([transforms.ToTensor()])
 
 def to_variable(x):
@@ -106,7 +108,7 @@ def interp(args, loaded_adacof_model=None, loaded_fusion_net=None, high_level=Fa
     )
 
     # High level 
-    if high_level:
+    if args.high_level:
         ada_pyr = pyr.filter(frame_res)
         ada_hl = ada_pyr.high_level.clone().detach()
         del ada_pyr
@@ -179,7 +181,7 @@ def interp(args, loaded_adacof_model=None, loaded_fusion_net=None, high_level=Fa
         fusion_net3 = FusionNet().to(device)
         fusion_net3.load_state_dict(torch.load('./src/fusion_net/fusion_net3.pt'))
         
-        phase_pred = img_p.to(device).unsqueeze(0).float()
+        phase_pred = result.to(device).unsqueeze(0).float()
         ada_pred = ada_res.to(device).float()
         other = torch.cat([img_1[:, :shape_r[0], :shape_r[1]].reshape(-1, 3, shape_r[0], shape_r[1]), img_2[:, :shape_r[0], :shape_r[1]].reshape(-1, 3, shape_r[0], shape_r[1])], 1).float()
         

@@ -55,6 +55,7 @@ parser.add_argument('--phasenet_replace_high_level', action='store_true')
 parser.add_argument('--fusion_checkpoint', type=str, default='./src/fusion_net/fusion_net.pt')
 parser.add_argument('--fusion_adacof_model', type=str, default='src.fusion_net.fusion_adacofnet')
 parser.add_argument('--fusion_model', type=int, default=1)
+parser.add_argument('--fusion_replace_high_level', action='store_true')
 
 # Returns all measurements for the image
 def evaluate_image(prediction, target):
@@ -115,7 +116,8 @@ def interpolate_fusion(args, adacof_model, fusion_net, a, b, output):
                 checkpoint=args.fusion_checkpoint,
                 model=args.fusion_model,
                 loaded_adacof_model=adacof_model,
-                loaded_fusion_net=fusion_net
+                loaded_fusion_net=fusion_net,
+                high_level=args.fusion_replace_high_level
             ))
         torch.cuda.empty_cache()
 
