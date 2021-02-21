@@ -9,11 +9,11 @@ class FusionNet(torch.nn.Module):
         super(FusionNet, self).__init__()
 
         self.net = nn.Sequential(
-                nn.Conv2d(3*num_imgs+1, 64, kernel_size=5, stride=1, padding=2),
+                nn.Conv2d(3*num_imgs+1, 64, kernel_size=3, stride=1, padding=1),
                 nn.ReLU(),
-                nn.Conv2d(64, 64, kernel_size=5, stride=1, padding=2),
+                nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1),
                 nn.ReLU(),
-                nn.Conv2d(64, 64, kernel_size=5, stride=1, padding=2),
+                nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1),
                 nn.ReLU(),
                 nn.Conv2d(64, 3, kernel_size=3, stride=1, padding=1),
                 nn.Sigmoid()

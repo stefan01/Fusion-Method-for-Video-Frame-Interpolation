@@ -193,7 +193,7 @@ def evaluate_dataset(args, dataset_path):
     # Skip ground truth pictures if it has offset (max_num)
     start_index = int(os.path.splitext(os.path.basename(first_img))[0])-1
 
-    it = range(1, num_img)
+    it = range(0, num_img)
 
     for i in tqdm(iterable=it, total=len(it)):
         # Load reference images
