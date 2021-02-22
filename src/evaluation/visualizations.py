@@ -73,7 +73,7 @@ def create_images(args, testset, test_path, inter_path):
 
 
 def draw_difference(pred_img_adacof, pred_img_phasenet, pred_img_fusion, target_img, out_path, error, number):
-    """ 
+    """
     Draws a single frame containing the target,
     the interpolated frames and difference frames
     """
@@ -177,26 +177,28 @@ def images_to_video(input_images, output_file, framerate=30):
     out.release()
 
 
-def draw_measurements(args, datasets, datasets_results, title):
+def draw_measurements_old(args, datasets, datasets_results):
     """
     Saves a image containing measurement results
     """
+    print(datasets)
+    print(datasets_results.shape)
     avg_data = []
     std_data = []
     min_data = []
     max_data = []
 
     for dataset_results in datasets_results:
-        avg = np.average(dataset_results, axis=0)
+        avg = np.average(dataset_results, axis=1)
         avg_data.append(avg)
 
-        std = np.std(dataset_results, axis=0)
+        std = np.std(dataset_results, axis=1)
         std_data.append(std)
 
-        min = np.min(dataset_results, axis=0)
+        min = np.min(dataset_results, axis=1)
         min_data.append(min)
 
-        max = np.max(dataset_results, axis=0)
+        max = np.max(dataset_results, axis=1)
         max_data.append(max)
 
     avg_data = np.stack(avg_data)
@@ -210,13 +212,15 @@ def draw_measurements(args, datasets, datasets_results, title):
 
     plt.figure(figsize=(30, 10))
 
-    plt.suptitle(title)
+    plt.suptitle('Results')
 
     plt.subplot(1, 3, 1)
-    plt.errorbar(y_pos, avg_data[:, 0],
-                 std_data[:, 0], fmt='o', label='AVG + STD')
-    plt.plot(y_pos, min_data[:, 0], 'o', label='MIN')
-    plt.plot(y_pos, max_data[:, 0], 'o', label='MAX')
+    for i in range(datasets_results.shape[0]):
+        plt.errorbar(y_pos, avg_data[i, :, 0],
+                     std_data[i, :, 0], fmt='o', label='AVG + STD')
+        plt.plot(y_pos, min_data[i, :, 0], 'o', label='MIN')
+        plt.plot(y_pos, max_data[i, :, 0], 'o', label='MAX')
+
     plt.xticks(y_pos, datasets)
     plt.grid()
     plt.ylim(bottom=0)
@@ -226,10 +230,12 @@ def draw_measurements(args, datasets, datasets_results, title):
                                                         for idx in legend_order])
 
     plt.subplot(1, 3, 2)
-    plt.errorbar(y_pos, avg_data[:, 1],
-                 std_data[:, 1], fmt='o', label='AVG + STD')
-    plt.plot(y_pos, min_data[:, 1], 'o', label='MIN')
-    plt.plot(y_pos, max_data[:, 1], 'o', label='MAX')
+    for i in range(datasets_results.shape[0]):
+        plt.errorbar(y_pos, avg_data[i, :, 1],
+                     std_data[i, :, 1], fmt='o', label='{} AVG + STD')
+        plt.plot(y_pos, min_data[i, :, 1], 'o', label='MIN')
+        plt.plot(y_pos, max_data[i, :, 1], 'o', label='MAX')
+
     plt.xticks(y_pos, datasets)
     plt.grid()
     plt.ylim(bottom=0)
@@ -239,10 +245,12 @@ def draw_measurements(args, datasets, datasets_results, title):
                                                         for idx in legend_order])
 
     plt.subplot(1, 3, 3)
-    plt.errorbar(y_pos, avg_data[:, 2],
-                 std_data[:, 2], fmt='o', label='AVG + STD')
-    plt.plot(y_pos, min_data[:, 2], 'o', label='MIN')
-    plt.plot(y_pos, max_data[:, 2], 'o', label='MAX')
+    for i in range(datasets_results.shape[0]):
+        plt.errorbar(y_pos, avg_data[i, :, 2],
+                     std_data[i, :, 2], fmt='o', label='AVG + STD')
+        plt.plot(y_pos, min_data[i, :, 2], 'o', label='MIN')
+        plt.plot(y_pos, max_data[i, :, 2], 'o', label='MAX')
+
     plt.xticks(y_pos, datasets)
     plt.grid()
     plt.ylim(bottom=0)
@@ -252,5 +260,56 @@ def draw_measurements(args, datasets, datasets_results, title):
                                                         for idx in legend_order])
 
     plt.savefig(os.path.join(args.base_dir,
-                             'results_{}.png'.format(title)), dpi=600)
+                             'results.png'), dpi=600)
+    plt.clf()
+
+
+def draw_measurements(args, datasets, datasets_results):
+    """
+    Saves a image containing measurement results
+    """
+    # datasets_results: [dataset, frame, interpolation_method, metric]
+    print(datasets)
+    print(datasets_results.shape)
+
+    bar_width = 0.25
+
+    interpolation_methods = ['AdaCoF', 'Phase',
+                             'Fusion'][:datasets_results.shape[2]]
+
+    # avg over frame (2)
+    avg_data = np.average(datasets_results, axis=1)
+
+    std_data = np.std(datasets_results, axis=1)
+
+    min_data = np.min(datasets_results, axis=1)
+
+    max_data = np.max(datasets_results, axis=1)
+
+    print("avg_data")
+    print(avg_data.shape)
+
+    x = np.arange(avg_data.shape[0])
+
+    legend_order = [1, 2, 0]
+
+    #plt.figure(figsize=(30, 10))
+
+    plt.title('Results')
+    plt.grid()
+    for interpolation_method_idx in range(datasets_results.shape[2]):
+        plt.bar(x + interpolation_method_idx*bar_width - (datasets_results.shape[2]*bar_width)/2 + 0.5*bar_width, avg_data[:, interpolation_method_idx, 1], bar_width-0.02,
+                align='center')
+        #plt.bar(min_data[:, interpolation_method_idx, 1], 'o', label='MIN')
+        #plt.bar(max_data[:, interpolation_method_idx, 1], 'o', label='MAX')
+
+    plt.xticks(x, datasets)
+    plt.ylim(bottom=0)
+
+    #handles, labels = plt.gca().get_legend_handles_labels()
+    # plt.legend([handles[idx] for idx in legend_order], [labels[idx]
+    #                                                    for idx in legend_order])
+
+    plt.savefig(os.path.join(args.base_dir,
+                             'results.png'))
     plt.clf()

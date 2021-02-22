@@ -13,7 +13,7 @@ from src.train.datareader import DBreader_Vimeo90k
 from steerable.SCFpyr_PyTorch import SCFpyr_PyTorch
 from src.train.trainer import Trainer
 from src.train.pyramid import Pyramid
-from src.phase_net.phase_net import PhaseNet
+from src.phase_net.architecture import PhaseNet
 import matplotlib.pyplot as plt
 import os
 
@@ -24,26 +24,33 @@ parser = argparse.ArgumentParser(description='PhaseNet-Pytorch')
 parser.add_argument('--gpu_id', type=int, default=0)
 
 # Directory Setting
-parser.add_argument('--train', type=str, default='./Trainset/vimeo/vimeo_triplet')
+parser.add_argument('--train', type=str,
+                    default='./Trainset/vimeo/vimeo_triplet')
 parser.add_argument('--load', type=str, default=None)
 
 # Learning Options
 parser.add_argument('--epochs', type=int, default=1, help='max epochs')
 parser.add_argument('--batch_size', type=int, default=8, help='batch size')
 parser.add_argument('--seed', type=int, default=0, help='seed')
-parser.add_argument('--m', type=int, default=None, help='layers to train from 0 to m')
-parser.add_argument('--m_update', type=int, default=500, help='number of batches after updating m')
+parser.add_argument('--m', type=int, default=None,
+                    help='layers to train from 0 to m')
+parser.add_argument('--m_update', type=int, default=500,
+                    help='number of batches after updating m')
 
 
 # Optimization specifications
 parser.add_argument('--lr', type=float, default=1e-3, help='learning rate')
-parser.add_argument('--lr_decay', type=int, default=0, help='learning rate decay per N epochs')
-parser.add_argument('--weight_decay', type=float, default=0, help='weight decay')
+parser.add_argument('--lr_decay', type=int, default=0,
+                    help='learning rate decay per N epochs')
+parser.add_argument('--weight_decay', type=float,
+                    default=0, help='weight decay')
 
 # Method Settings
 parser.add_argument('--mode', type=str, default='phase', help='phase, fusion')
-parser.add_argument('--high_level', type=bool, default=False, help='replace high-level with adacof output or not')
-parser.add_argument('--model', type=int, default=0, help='Define which fusion model')
+parser.add_argument('--high_level', type=bool, default=False,
+                    help='replace high-level with adacof output or not')
+parser.add_argument('--model', type=int, default=0,
+                    help='Define which fusion model')
 
 transform = transforms.Compose([transforms.ToTensor()])
 
@@ -63,7 +70,8 @@ def main():
 
     # Dataset
     dataset = DBreader_Vimeo90k(args.train, random_crop=(256, 256))
-    train_loader = DataLoader(dataset=dataset, batch_size=args.batch_size, shuffle=True, num_workers=0)
+    train_loader = DataLoader(
+        dataset=dataset, batch_size=args.batch_size, shuffle=True, num_workers=0)
 
     # Pyramid and Network
     device = torch.device(f'cuda:{args.gpu_id}')
@@ -79,12 +87,11 @@ def main():
         num = 4 if args.model == 0 else 3
     else:
         num = 2
-    model = PhaseNet(pyr, device, num_img=num)
+    model = PhaseNet(pyr.height, device, num_img=num)
     m = 10
-    
+
     if args.m is not None:
         m = args.m
-        #model.set_layers(m+1, 9, freeze=True)
 
     # Load model if given
     start_epoch = 0
@@ -93,7 +100,7 @@ def main():
 
     # Set trainer
     my_trainer = Trainer(args, train_loader, model, my_pyr=pyr, lr=args.lr, weight_decay=args.weight_decay,
-                                start_epoch=start_epoch, out_dir=out_dir, m=m, m_update=args.m_update)
+                         start_epoch=start_epoch, out_dir=out_dir, m=m, m_update=args.m_update)
 
     # Log training
     now = datetime.datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
@@ -106,7 +113,8 @@ def main():
     # Train
     while not my_trainer.terminate():
         my_trainer.train()
-        torch.save(model.state_dict(), out_dir + f'/checkpoint/model_{my_trainer.current_epoch}.pt')
+        torch.save(model.state_dict(), out_dir +
+                   f'/checkpoint/model_{my_trainer.current_epoch}.pt')
 
     # Delete Testfiles
     os.remove(my_trainer.out_dir + '/log_train.txt')
@@ -118,7 +126,8 @@ def main():
     plt.xlabel('Step')
     plt.ylabel('Loss')
     model_idx = '_' + str(args.model) if args.mode == 'fusion' else ''
-    plt.title(f'Loss_{args.mode}{model_idx}_{args.epochs}_{my_trainer.max_step}')
+    plt.title(
+        f'Loss_{args.mode}{model_idx}_{args.epochs}_{my_trainer.max_step}')
     plt.savefig(my_trainer.out_dir + '/loss_graph.png')
 
     my_trainer.close()

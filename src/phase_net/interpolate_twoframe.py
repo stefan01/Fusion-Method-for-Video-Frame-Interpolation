@@ -17,18 +17,23 @@ from src.phase_net.phase_net import PhaseNet
 parser = argparse.ArgumentParser(description='Two-frame Interpolation')
 
 parser.add_argument('--gpu_id', type=int, default=0)
-parser.add_argument('--checkpoint', type=str, default='./src/phase_net/phase_net.pt')
+parser.add_argument('--checkpoint', type=str,
+                    default='./src/phase_net/phase_net.pt')
 
-parser.add_argument('--first_frame', type=str, default='./sample_twoframe/0.png')
-parser.add_argument('--second_frame', type=str, default='./sample_twoframe/1.png')
+parser.add_argument('--first_frame', type=str,
+                    default='./sample_twoframe/0.png')
+parser.add_argument('--second_frame', type=str,
+                    default='./sample_twoframe/1.png')
 parser.add_argument('--output_frame', type=str, default='./output.png')
 
 parser.add_argument('--high_level', action='store_true')
 
 transform = transforms.Compose([transforms.ToTensor()])
 
+
 def main():
     interp(parser.parse_args())
+
 
 def interp(args):
     torch.cuda.set_device(args.gpu_id)
@@ -46,9 +51,10 @@ def interp(args):
     img_2 = pad_img(img_2/255)
 
     # To tensors
-    img_1 = rgb2lab_single(torch.as_tensor(img_1).permute(2, 0, 1).float(), light=100, ab_mul=255, ab_max=128).to(device)
-    img_2 = rgb2lab_single(torch.as_tensor(img_2).permute(2, 0, 1).float(), light=100, ab_mul=255, ab_max=128).to(device)
-
+    img_1 = rgb2lab_single(torch.as_tensor(img_1).permute(
+        2, 0, 1).float(), light=100, ab_mul=255, ab_max=128).to(device)
+    img_2 = rgb2lab_single(torch.as_tensor(img_2).permute(
+        2, 0, 1).float(), light=100, ab_mul=255, ab_max=128).to(device)
 
     # Build pyramid
     pyr = Pyramid(
@@ -57,8 +63,8 @@ def interp(args):
         scale_factor=np.sqrt(2),
         device=device,
     )
-    
-    # High level 
+
+    # High level
     if args.high_level:
         ada_pyr = pyr.filter(frame_res)
         ada_hl = ada_pyr.high_level.clone().detach()

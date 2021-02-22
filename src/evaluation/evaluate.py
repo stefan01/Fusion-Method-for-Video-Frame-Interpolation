@@ -220,7 +220,7 @@ def eval(args):
             args, args.test_sets, testset_path, img_output_dir)
 
     # Show Results
-    i = 0
+    '''i = 0
     if args.adacof:
         results_adacof = [r[:, i] for r in results_np]
         visualizations.draw_measurements(
@@ -235,7 +235,10 @@ def eval(args):
         results_fusion = [r[:, i] for r in results_np]
         visualizations.draw_measurements(
             args, args.test_sets, results_fusion, 'Fusion')
-        i = i + 1
+        i = i + 1'''
+
+    visualizations.draw_measurements(
+        args, args.test_sets, np.array(results_np))
 
 
 if __name__ == "__main__":
