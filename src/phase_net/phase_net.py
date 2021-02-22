@@ -111,19 +111,11 @@ class PhaseNet(nn.Module):
 
         # Get output of first phase-net block for low level prediction
         feature, prediction = self.layers[0](vals.low_level)
-        
         # Prediction is the linear weights between the first low level
         alpha = (prediction[:, 0]+1)/2
         low_level = alpha * vals.low_level[:, 0] + (1-alpha) * vals.low_level[:, 1]
 
         # Fusion Method for low level
-        #if self.num_img == 4:
-        #    ada_alpha = (prediction[:, 1]+1)/2
-        #    fusion_alpha = (prediction[:, 2]+1)/2
-        #    
-        #    ada_low_level = ada_alpha * vals.low_level[:, 2] + (1-ada_alpha) * vals.low_level[:, 3]
-        #    low_level = fusion_alpha * low_level + (1-fusion_alpha) * ada_low_level
-        #el
         if self.num_img == 3:
             fusion_alpha = (prediction[:, 1]+1)/2
             low_level = fusion_alpha * low_level + (1-fusion_alpha) * vals.low_level[:, 2]
@@ -158,19 +150,12 @@ class PhaseNet(nn.Module):
 
             del concat
             torch.cuda.empty_cache()
-            
+
             # Caculate amplitude values
             beta = (prediction[:, 4:8]+1)/2
             amplitude = beta * vals.amplitude[idx][:, 4:8] + (1-beta) * vals.amplitude[idx][:, :4]
 
             # Fusion Method
-            #if self.num_img == 4:
-            #    ada_beta = (prediction[:, 8:12]+1)/2
-            #    fusion_beta = (prediction[:, 12:16]+1)/2
-    
-            #    ada_amplitude = ada_beta * vals.amplitude[idx][:, 8:12] + (1-ada_beta) * vals.amplitude[idx][:, 12:16]
-            #    amplitude = fusion_beta * amplitude + (1-fusion_beta) * ada_amplitude
-            #el
             if self.num_img == 3:
                 fusion_beta = (prediction[:, 8:12]+1)/2
                 print(fusion_beta.mean(-1).mean(-1))

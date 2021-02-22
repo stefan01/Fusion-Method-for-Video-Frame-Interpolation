@@ -253,7 +253,7 @@ def create_images(args, testset, test_path, inter_path):
         # Skip ground truth pictures if it has offset (max_num)
         start_index = int(os.path.splitext(os.path.basename(inter_image_adacof[0]))[0]) - 1
 
-        for image_idx in range(len(inter_image_adacof) - 1): # TODO: Could be that error is missing one entry?
+        for image_idx in range(len(inter_image_adacof)): # TODO: Could be that error is missing one entry?
             if args.adacof:
                 adacof_img = np.asarray(Image.open(inter_image_adacof[image_idx]))
             if args.phase:
@@ -283,10 +283,10 @@ def draw_difference(pred_img_adacof, pred_img_phasenet, pred_img_fusion, target_
 
     if os.path.exists(out_path + "/" + name):
         return
-
-    difference_adacof = np.average(np.abs(target_img - pred_img_adacof), axis=2)
-    difference_phasenet = np.average(np.abs(target_img - pred_img_phasenet), axis=2)
-    difference_fusion = np.average(np.abs(target_img - pred_img_fusion), axis=2)
+    
+    difference_adacof = np.average(np.abs(target_img.astype(np.int) - pred_img_adacof.astype(np.int)), axis=2) # axis=2
+    difference_phasenet = np.average(np.abs(target_img.astype(np.int) - pred_img_phasenet.astype(np.int)), axis=2)
+    difference_fusion = np.average(np.abs(target_img.astype(np.int) - pred_img_fusion.astype(np.int)), axis=2)
     
     plt.subplot(3, 1, 1)
     plt.imshow(target_img)
@@ -309,14 +309,14 @@ def draw_difference(pred_img_adacof, pred_img_phasenet, pred_img_fusion, target_
     plt.title('Phasenet Image')
 
     plt.subplot(3, 3, 7)
-    plt.imshow(difference_adacof, interpolation='none', cmap='plasma', vmin=0, vmax=255)
+    plt.imshow(difference_adacof, interpolation='none', cmap='jet', vmin=0, vmax=100)
     plt.axis('off')
     plt.colorbar()
     plt.title('AdaCoF Diff')
     plt.text(500, 1300, 'SSIM: {:.2f}\nLPIPS: {:.2f}\nPSNR: {:.2f}'.format(error[0, 0], error[0, 1], error[0, 2]), ha='center')
 
     plt.subplot(3, 3, 8)
-    plt.imshow(difference_fusion, interpolation='none', cmap='plasma', vmin=0, vmax=255)
+    plt.imshow(difference_fusion, interpolation='none', cmap='jet', vmin=0, vmax=100)
     plt.axis('off')
     plt.colorbar()
     plt.title('Fusion Diff')
@@ -324,7 +324,7 @@ def draw_difference(pred_img_adacof, pred_img_phasenet, pred_img_fusion, target_
 
 
     plt.subplot(3, 3, 9)
-    plt.imshow(difference_phasenet, interpolation='none', cmap='plasma', vmin=0, vmax=255)
+    plt.imshow(difference_phasenet, interpolation='none', cmap='jet', vmin=0, vmax=100)
     plt.axis('off')
     plt.colorbar()
     plt.title('Phasenet Diff')
