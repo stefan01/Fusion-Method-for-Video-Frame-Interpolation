@@ -65,6 +65,7 @@ parser.add_argument('--fusion_adacof_model', type=str,
                     default='src.fusion_net.fusion_adacofnet')
 parser.add_argument('--fusion_model', type=int, default=1)
 parser.add_argument('--fusion_replace_high_level', action='store_true')
+parser.add_argument('--vimeo_testset', action='store_true')
 
 
 def evaluate_dataset(args, dataset_path):
@@ -74,36 +75,53 @@ def evaluate_dataset(args, dataset_path):
     and compares the result with ground truth b
     """
     print('Evaluating Dataset ', dataset_path)
-    output_path_adacof = os.path.join(
-        args.base_dir, args.img_output, dataset_path, 'adacof')
-    output_path_phasenet = os.path.join(
-        args.base_dir, args.img_output, dataset_path, 'phasenet')
-    output_path_fusion = os.path.join(
-        args.base_dir, args.img_output, dataset_path, 'fusion')
+
+    if args.vimeo_testset:
+        output_path_adacof = os.path.join(
+            args.base_dir, args.img_output, 'adacof', dataset_path, '*', 'im2.png')
+        output_path_phasenet = os.path.join(
+            args.base_dir, args.img_output, 'phasenet', dataset_path, '*', 'im2.png')
+        output_path_fusion = os.path.join(
+            args.base_dir, args.img_output, 'fusion', dataset_path, '*', 'im2.png')
+    else:
+        output_path_adacof = os.path.join(
+            args.base_dir, args.img_output, dataset_path, 'adacof', '*')
+        output_path_phasenet = os.path.join(
+            args.base_dir, args.img_output, dataset_path, 'phasenet', '*')
+        output_path_fusion = os.path.join(
+            args.base_dir, args.img_output, dataset_path, 'fusion', '*')
 
     if args.adacof:
         prediction_folder_adacof = sorted(
-            glob.glob(os.path.join(output_path_adacof, '*')))
+            glob.glob(output_path_adacof))
         num_img = len(prediction_folder_adacof)
         first_img = prediction_folder_adacof[0]
     if args.phase:
         prediction_folder_phasenet = sorted(
-            glob.glob(os.path.join(output_path_phasenet, '*')))
+            glob.glob(output_path_phasenet))
         num_img = len(prediction_folder_phasenet)
         first_img = prediction_folder_phasenet[0]
     if args.fusion:
         prediction_folder_fusion = sorted(
-            glob.glob(os.path.join(output_path_fusion, '*')))
+            glob.glob(output_path_fusion))
         num_img = len(prediction_folder_fusion)
         first_img = prediction_folder_fusion[0]
 
-    target_folder = sorted(
-        glob.glob(os.path.join('Testset', dataset_path, '*')))
+    if args.vimeo_testset:
+        target_folder = sorted(
+            glob.glob(os.path.join('Testset', 'vimeo_interp_test',
+                                   'target', '*', '*', 'im2.png')))
+    else:
+        target_folder = sorted(
+            glob.glob(os.path.join('Testset', dataset_path, '*')))
 
     eval_results = []
 
-    # Skip ground truth pictures if it has offset (max_num)
-    start_index = int(os.path.splitext(os.path.basename(first_img))[0])-1
+    if args.vimeo_testset:
+        start_index = 0
+    else:
+        # Skip ground truth pictures if it has offset (max_num)
+        start_index = int(os.path.splitext(os.path.basename(first_img))[0])-1
 
     it = range(0, num_img)
 
@@ -194,12 +212,23 @@ def eval(args):
     fusion_net.eval()
 
     # Interpolate
-    for testset in args.test_sets:
-        testset_path = os.path.join('Testset', testset)
+    if args.vimeo_testset:
         interpolate.interpolate_dataset(
-            args, adacof_model, fusion_net, testset_path, max_num=args.max_num)
+            args, adacof_model, fusion_net)
+    else:
+        for testset in args.test_sets:
+            testset_path = os.path.join('Testset', testset)
+            interpolate.interpolate_dataset(
+                args, adacof_model, fusion_net, testset_path, max_num=args.max_num)
 
     # Evaluate Results
+    if args.vimeo_testset:
+        # Override test_sets with vimeo
+        testsets_path = sorted(
+            glob.glob(os.path.join('Testset', 'vimeo_interp_test',
+                                   'target', '*')))
+        args.test_sets = [os.path.basename(x) for x in testsets_path]
+
     results_np = []
     for testset in args.test_sets:
         result_path = os.path.join(
@@ -216,10 +245,11 @@ def eval(args):
     testset_path = 'Testset/'
 
     if args.adacof and args.phase and args.fusion:
-        visualizations.create_images(
-            args, args.test_sets, testset_path, img_output_dir)
+        pass
+        # visualizations.create_images(
+        #    args, args.test_sets, testset_path, img_output_dir)
 
-    # Show Results
+        # Show Results
     '''i = 0
     if args.adacof:
         results_adacof = [r[:, i] for r in results_np]
@@ -238,7 +268,7 @@ def eval(args):
         i = i + 1'''
 
     visualizations.draw_measurements(
-        args, args.test_sets, np.array(results_np))
+        args, args.test_sets, results_np)
 
 
 if __name__ == "__main__":

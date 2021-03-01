@@ -81,56 +81,103 @@ def interpolate_fusion(args, adacof_model, fusion_net, a, b, output):
         torch.cuda.empty_cache()
 
 
-def interpolate_dataset(args, adacof_model, fusion_net, dataset_path, max_num=None):
+def interpolate_dataset(args, adacof_model, fusion_net, dataset_path='', max_num=None):
     """
     Interpolates triples of images
     from a dataset (list of filenames)
     """
-    dataset_name = os.path.basename(dataset_path)
-    print('Interpolating Dataset {}'.format(dataset_name))
-    dataset = sorted(glob.glob('{}/*.png'.format(dataset_path)))
-    if not dataset:
-        dataset = sorted(glob.glob('{}/*.jpg'.format(dataset_path)))
 
-    num = len(dataset)-2
-    start = 0
-    end = num
-    if max_num and max_num < num:
-        start = random.randint(0, num - max_num)
-        end = start + max_num
+    if args.vimeo_testset:
+        interpolate_vimeo_testset(args, adacof_model, fusion_net)
+    else:
+        dataset_name = os.path.basename(dataset_path)
+        print('Interpolating Dataset {}'.format(dataset_name))
+        dataset = sorted(glob.glob('{}/*.png'.format(dataset_path)))
+        if not dataset:
+            dataset = sorted(glob.glob('{}/*.jpg'.format(dataset_path)))
 
-    it = range(start, end)
-    print(dataset_path)
+        num = len(dataset)-2
+        start = 0
+        end = num
+        if max_num and max_num < num:
+            start = random.randint(0, num - max_num)
+            end = start + max_num
 
-    print('Start: {}'.format(start))
-    print('End: {}'.format(end))
+        it = range(start, end)
+        print(dataset_path)
 
-    for i in tqdm(iterable=it, total=len(it)):
-        interpolated_filename = '{}.png'.format(str(i+1).zfill(4))
+        print('Start: {}'.format(start))
+        print('End: {}'.format(end))
+
+        for i in tqdm(iterable=it, total=len(it)):
+            interpolated_filename = '{}.png'.format(str(i+1).zfill(4))
+            output_path_adacof = os.path.join(
+                args.base_dir, args.img_output, dataset_name, 'adacof')
+            output_path_phasenet = os.path.join(
+                args.base_dir, args.img_output, dataset_name, 'phasenet')
+            output_path_fusion = os.path.join(
+                args.base_dir, args.img_output, dataset_name, 'fusion')
+
+            output_path_adacof_image = os.path.join(
+                output_path_adacof, interpolated_filename)
+            output_path_phasenet_image = os.path.join(
+                output_path_phasenet, interpolated_filename)
+            output_path_fusion_image = os.path.join(
+                output_path_fusion, interpolated_filename)
+
+            # Interpolate and create output folders if they don't exist yet
+            if args.adacof:
+                os.makedirs(output_path_adacof, exist_ok=True)
+                interpolate_adacof(
+                    args, dataset[i], dataset[i+2], output_path_adacof_image)
+            if args.phase:
+                os.makedirs(output_path_phasenet, exist_ok=True)
+                interpolate_phasenet(
+                    args, dataset[i], dataset[i+2], output_path_phasenet_image)
+            if args.fusion:
+                os.makedirs(output_path_fusion, exist_ok=True)
+                interpolate_fusion(args, adacof_model, fusion_net,
+                                   dataset[i], dataset[i+2], output_path_fusion_image)
+
+
+def interpolate_vimeo_testset(args, adacof_model, fusion_net):
+    """
+    Interpolates the triplets from the vimeo testset
+    """
+
+    # Read file with triplets
+    with open(os.path.join('Testset', 'vimeo_interp_test', 'tri_testlist.txt')) as f:
+        triplets = f.readlines()
+        triplets = [x.strip() for x in triplets]
+
+    for triplet in tqdm(triplets):
+        im1 = os.path.join('Testset', 'vimeo_interp_test',
+                           'input', triplet, 'im1.png')
+        im3 = os.path.join('Testset', 'vimeo_interp_test',
+                           'input', triplet, 'im3.png')
+
         output_path_adacof = os.path.join(
-            args.base_dir, args.img_output, dataset_name, 'adacof')
+            args.base_dir, args.img_output, 'adacof', triplet)
         output_path_phasenet = os.path.join(
-            args.base_dir, args.img_output, dataset_name, 'phasenet')
+            args.base_dir, args.img_output, 'phasenet', triplet)
         output_path_fusion = os.path.join(
-            args.base_dir, args.img_output, dataset_name, 'fusion')
+            args.base_dir, args.img_output, 'fusion', triplet)
 
-        output_path_adacof_image = os.path.join(
-            output_path_adacof, interpolated_filename)
+        output_path_adacof_image = os.path.join(output_path_adacof, 'im2.png')
         output_path_phasenet_image = os.path.join(
-            output_path_phasenet, interpolated_filename)
-        output_path_fusion_image = os.path.join(
-            output_path_fusion, interpolated_filename)
+            output_path_phasenet, 'im2.png')
+        output_path_fusion_image = os.path.join(output_path_fusion, 'im2.png')
 
         # Interpolate and create output folders if they don't exist yet
         if args.adacof:
             os.makedirs(output_path_adacof, exist_ok=True)
             interpolate_adacof(
-                args, dataset[i], dataset[i+2], output_path_adacof_image)
+                args, im1, im3, output_path_adacof_image)
         if args.phase:
             os.makedirs(output_path_phasenet, exist_ok=True)
             interpolate_phasenet(
-                args, dataset[i], dataset[i+2], output_path_phasenet_image)
+                args, im1, im3, output_path_phasenet_image)
         if args.fusion:
             os.makedirs(output_path_fusion, exist_ok=True)
             interpolate_fusion(args, adacof_model, fusion_net,
-                               dataset[i], dataset[i+2], output_path_fusion_image)
+                               im1, im3, output_path_fusion_image)

@@ -27,21 +27,48 @@ def create_images(args, testset, test_path, inter_path):
         if not os.path.exists(out):
             os.makedirs(out)
 
-        ground_truth = [os.path.join(test_path, i, filename) for filename in sorted(
-            os.listdir(test_path + "/" + i))][1:-1]
-        inter_image_adacof = [os.path.join(inter_path, i, 'adacof', interpolate) for interpolate in sorted(
-            os.listdir(os.path.join(inter_path, i, 'adacof')))]
-        inter_image_phasenet = [os.path.join(inter_path, i, 'phasenet', interpolate) for interpolate in sorted(
-            os.listdir(os.path.join(inter_path, i, 'phasenet')))]
-        inter_image_fusion = [os.path.join(inter_path, i, 'fusion', interpolate) for interpolate in sorted(
-            os.listdir(os.path.join(inter_path, i, 'fusion')))]
+        if args.vimeo_testset:
+            ground_truth = sorted(
+                glob.glob(os.path.join('Testset', 'vimeo_interp_test',
+                                       'target', i, '*', 'im2.png')))
+
+            inter_image_adacof = sorted(
+                glob.glob(os.path.join(inter_path, 'adacof', i, '*', 'im2.png')))
+
+            inter_image_phasenet = sorted(
+                glob.glob(os.path.join(inter_path, 'phasenet', i, '*', 'im2.png')))
+
+            inter_image_fusion = sorted(
+                glob.glob(os.path.join(inter_path, 'fusion', i, '*', 'im2.png')))
+
+            start_index = 0
+        else:
+            ground_truth = sorted(
+                glob.glob(os.path.join(test_path, i, '*')))[1:-1]
+            # ground_truth = [os.path.join(test_path, i, filename) for filename in sorted(
+            #    os.listdir(test_path + "/" + i))][1:-1]
+
+            inter_image_adacof = sorted(
+                glob.glob(os.path.join(inter_path, i, 'adacof', '*')))
+            # inter_image_adacof = [os.path.join(inter_path, i, 'adacof', interpolate) for interpolate in sorted(
+            #    os.listdir(os.path.join(inter_path, i, 'adacof')))]
+
+            inter_image_phasenet = sorted(
+                glob.glob(os.path.join(inter_path, i, 'phasenet', '*')))
+            # inter_image_phasenet = [os.path.join(inter_path, i, 'phasenet', interpolate) for interpolate in sorted(
+            #    os.listdir(os.path.join(inter_path, i, 'phasenet')))]
+
+            inter_image_fusion = sorted(
+                glob.glob(os.path.join(inter_path, i, 'fusion', '*')))
+            # inter_image_fusion = [os.path.join(inter_path, i, 'fusion', interpolate) for interpolate in sorted(
+            #    os.listdir(os.path.join(inter_path, i, 'fusion')))]
+
+            # Skip ground truth pictures if it has offset (max_num)
+            start_index = int(os.path.splitext(
+                os.path.basename(inter_image_adacof[0]))[0]) - 1
+
         error = np.load(os.path.join(args.base_dir, 'result_{}.npy'.format(i)))
 
-        # Skip ground truth pictures if it has offset (max_num)
-        start_index = int(os.path.splitext(
-            os.path.basename(inter_image_adacof[0]))[0]) - 1
-
-        # TODO: Could be that error is missing one entry?
         for image_idx in range(len(inter_image_adacof)):
             if args.adacof:
                 adacof_img = np.asarray(Image.open(
@@ -68,8 +95,11 @@ def create_images(args, testset, test_path, inter_path):
 
         input_images = sorted(glob.glob(os.path.join(out, '*.png')))
         print(input_images)
-        images_to_video(input_images, os.path.join(
-            out, 'result.avi'), framerate=10)
+
+        video_output_path = os.path.join(
+            out, 'result.avi')
+        if not os.path.exists(video_output_path):
+            images_to_video(input_images, video_output_path, framerate=10)
 
 
 def draw_difference(pred_img_adacof, pred_img_phasenet, pred_img_fusion, target_img, out_path, error, number):
@@ -269,46 +299,65 @@ def draw_measurements(args, datasets, datasets_results):
     Saves a image containing measurement results
     """
     # datasets_results: [dataset, frame, interpolation_method, metric]
-    print(datasets)
-    print(datasets_results.shape)
-
     bar_width = 0.25
 
     interpolation_methods = ['AdaCoF', 'Phase',
-                             'Fusion'][:datasets_results.shape[2]]
+                             'Fusion'][:datasets_results[0].shape[1]]
 
-    # avg over frame (2)
-    avg_data = np.average(datasets_results, axis=1)
+    avg_data = []
+    std_data = []
+    min_data = []
+    max_data = []
+    for dataset_results in datasets_results:
+        # avg over frame (2)
+        avg = np.average(dataset_results, axis=0)
+        avg_data.append(avg)
 
-    std_data = np.std(datasets_results, axis=1)
+        std = np.std(dataset_results, axis=0)
+        std_data.append(std)
 
-    min_data = np.min(datasets_results, axis=1)
+        min = np.min(dataset_results, axis=0)
+        min_data.append(min)
 
-    max_data = np.max(datasets_results, axis=1)
+        max = np.max(dataset_results, axis=0)
+        max_data.append(max)
 
-    print("avg_data")
-    print(avg_data.shape)
-
-    x = np.arange(avg_data.shape[0])
+    x = np.arange(len(avg_data))
 
     legend_order = [1, 2, 0]
 
-    #plt.figure(figsize=(30, 10))
+    #plt.figure(figsize=(len(datasets_results), 10))
+
+    fig, axs = plt.subplots(
+        3, sharex=True, figsize=(len(datasets_results), 10))
 
     plt.title('Results')
-    plt.grid()
-    for interpolation_method_idx in range(datasets_results.shape[2]):
-        plt.bar(x + interpolation_method_idx*bar_width - (datasets_results.shape[2]*bar_width)/2 + 0.5*bar_width, avg_data[:, interpolation_method_idx, 1], bar_width-0.02,
-                align='center')
+    for interpolation_method_idx in range(datasets_results[0].shape[1]):
+        avg_plot = np.array([x[interpolation_method_idx, 0] for x in avg_data])
+        axs[0].set_title('SSIM')
+        axs[0].grid()
+        axs[0].bar(x + interpolation_method_idx*bar_width - (datasets_results[0].shape[1]*bar_width)/2 + 0.5*bar_width, avg_plot, bar_width-0.02,
+                   align='center', label=interpolation_methods[interpolation_method_idx])
+        axs[0].legend()
+
+        avg_plot = np.array([x[interpolation_method_idx, 1] for x in avg_data])
+        axs[1].set_title('LPIPS')
+        axs[1].grid()
+        axs[1].bar(x + interpolation_method_idx*bar_width - (datasets_results[0].shape[1]*bar_width)/2 + 0.5*bar_width, avg_plot, bar_width-0.02,
+                   align='center', label=interpolation_methods[interpolation_method_idx])
+        axs[1].legend()
+
+        avg_plot = np.array([x[interpolation_method_idx, 2] for x in avg_data])
+        axs[2].set_title('PSNR')
+        axs[2].grid()
+        axs[2].bar(x + interpolation_method_idx*bar_width - (datasets_results[0].shape[1]*bar_width)/2 + 0.5*bar_width, avg_plot, bar_width-0.02,
+                   align='center', label=interpolation_methods[interpolation_method_idx])
+        axs[2].legend()
         #plt.bar(min_data[:, interpolation_method_idx, 1], 'o', label='MIN')
         #plt.bar(max_data[:, interpolation_method_idx, 1], 'o', label='MAX')
 
     plt.xticks(x, datasets)
     plt.ylim(bottom=0)
-
-    #handles, labels = plt.gca().get_legend_handles_labels()
-    # plt.legend([handles[idx] for idx in legend_order], [labels[idx]
-    #                                                    for idx in legend_order])
 
     plt.savefig(os.path.join(args.base_dir,
                              'results.png'))
