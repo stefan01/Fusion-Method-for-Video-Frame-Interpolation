@@ -16,6 +16,8 @@ class PhaseNet(nn.Module):
     """
 
     def __init__(self, height: int, device: torch.device, num_img: int = 2, scale_factor: float = np.sqrt(2), nbands: int = 4):
+        super(PhaseNet, self).__init__()
+
         # Constructor of PhaseNetCore
         self.core = PhaseNetCore(
             height, device, num_img=num_img, nbands=nbands)
@@ -29,11 +31,11 @@ class PhaseNet(nn.Module):
         )
         self.to(device)
 
-    def load(path: str = './src/phase_net/phase_net.pt'):
+    def load(self, path: str = './src/phase_net/phase_net.pt'):
         """ Load state dict of network from path. """
         self.core.load_state_dict(torch.load(path))
 
-    def forward(img_batch: torch.tensor, high_level: bool = False, ada_pred: torch.tensor = None, m: int = None):
+    def forward(self, img_batch: torch.tensor, high_level: bool = False, ada_pred: torch.tensor = None, m: int = None):
         # Combine images into one big batch and then create the values and separate
         vals_batch = self.pyr.filter(img_batch.float())
         vals_list = separate_vals(vals_batch, self.core.num_img)

@@ -87,7 +87,7 @@ def main():
         num = 4 if args.model == 0 else 3
     else:
         num = 2
-    model = PhaseNet(pyr.height, device, num_img=num)
+    model = PhaseNet(12, device, num_img=num)
     m = 10
 
     if args.m is not None:
@@ -99,7 +99,7 @@ def main():
         model.load_state_dict(torch.load(args.load))
 
     # Set trainer
-    my_trainer = Trainer(args, train_loader, model, my_pyr=pyr, lr=args.lr, weight_decay=args.weight_decay,
+    my_trainer = Trainer(args, train_loader, model, pyr=pyr, lr=args.lr, weight_decay=args.weight_decay,
                          start_epoch=start_epoch, out_dir=out_dir, m=m, m_update=args.m_update)
 
     # Log training

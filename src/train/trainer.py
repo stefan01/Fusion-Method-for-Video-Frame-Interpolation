@@ -111,14 +111,10 @@ class Trainer:
     def train(self):
         """ Train the model. """
         for batch_idx, triple in enumerate(self.train_loader):
-            # Get height and width of the training image
-            h, w = triple[0].shape[2:3+1]
-            hw = (h, w)
-
-            # Transform into lab space
-            lab_frame1 = rgb2lab(triple[0]).reshape((-1,) + hw).to(self.device)
-            target = rgb2lab(triple[1]).reshape((-1,) + hw).to(self.device)
-            lab_frame2 = rgb2lab(triple[2]).reshape((-1,) + hw).to(self.device)
+            # Lab space transformation
+            lab_frame1 = preprocess(triple[0], self.device)
+            lab_frame2 = preprocess(triple[2], self.device)
+            target = preprocess(triple[1], self.device)
 
             # Transform rgb images for adacof
             rgb_frame1 = triple[0].to(self.device)

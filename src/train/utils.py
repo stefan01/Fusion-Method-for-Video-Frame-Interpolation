@@ -5,6 +5,7 @@ from PIL import Image
 import torch
 from collections import namedtuple
 import copy
+from src.train.transform import *
 
 DecompValues = namedtuple(
     'values',
@@ -170,11 +171,35 @@ def calc_pyr_height(img):
     return int(np.ceil((np.log2(min(size))-3)*2)+2)
 
 
-def preprocess(img, pyr):
-    """ Preprocesses an image, so it can be directly used for the pyramid decomposition. """
-    if isinstance(img, torch.tensor):
-        return img
-    elif isinstance(img, np.array):
+def preprocess(img: torch.Tensor, device, normalized=True):
+    """ Preprocesses an image, so it can be directly used for the pyramid decomposition.
+        Input: (B,C, H, W), Output: (B*C, H, W) normalized, lab space, float, on device. """
+
+    if isinstance(img, torch.Tensor) or isinstance(img, np.ndarray):
+        img = torch.as_tensor(img)
+        dims = len(img.shape)
+
+        if dims != 4:
+            print('Image shape has to be (B, C, H, W)!')
+            return img
+
+        # Get height and width of the training image
+        h, w = img.shape[2:3+1]
+        hw = (h, w)
+
+        # Normalization
+        if not normalized:
+            img = img/255
+
+        # Transform into lab space
+        img = rgb2lab(img).reshape((-1,) + hw)
+
+        # Float
+        img = img.float()
+
+        # Device
+        img = img.to(device)
+
         return img
     else:
         print('Img has a not supported type:', img.__class__)
