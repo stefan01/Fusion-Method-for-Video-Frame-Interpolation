@@ -50,8 +50,6 @@ class Trainer:
         self.logfile = open(self.out_dir + '/log.txt', 'w')
         self.loss_history = []
 
-        
-
     def create_folders(self):
         """ Checks whether the folders for results and checkpoints already exists or creates them. """
         if not os.path.exists(self.out_dir):
@@ -66,12 +64,12 @@ class Trainer:
 
         # Adacof prediction
         with torch.no_grad():
-            ada_frame1, ada_frame2, ada_pred, uncertainty_mask = self.adacof_model(rgb_frame1, rgb_frame2)
+            ada_frame1, ada_frame2, ada_pred, ada_uncertainty = self.adacof_model(rgb_frame1, rgb_frame2)
 
             ada_frame1 = rgb2lab(ada_frame1)
             ada_frame2 = rgb2lab(ada_frame2)
             ada_pred = rgb2lab(ada_pred)
-             
+
             ada_frame1 = ada_frame1.reshape(-1, ada_frame1.shape[2], ada_frame1.shape[3]).to(self.device).float()
             ada_frame2 = ada_frame2.reshape(-1, ada_frame2.shape[2], ada_frame2.shape[3]).to(self.device).float()
             ada_pred = ada_pred.reshape(-1, ada_pred.shape[2], ada_pred.shape[3]).to(self.device).float()
@@ -97,20 +95,40 @@ class Trainer:
         with torch.no_grad():
             vals_pred = self.phase_net(input)
 
-        # Exchange high levels of phase net
+        # RGB prediction without new high levels
+        lab_pred = self.pyr.inv_filter(vals_pred)
+        lab_pred = lab_pred.reshape(-1, 3, lab_pred.shape[1], lab_pred.shape[2]).float()
+        rgb_pred = lab2rgb(lab_pred)
+
+        # Exchange high levels of phase net, but copy before that uncertainty of phase
         ada_pyr = self.pyr.filter(ada_pred.squeeze(0))
         vals_pred.high_level[:] = ada_pyr.high_level
 
         # Get phase net prediction image
         phase_pred = self.pyr.inv_filter(vals_pred)
-        
-        
+
+        # Get uncertainty map of phase_net
+        img_batch = torch.cat((rgb_frame1.to(self.device), rgb_frame2.to(self.device), rgb_pred.to(self.device)), 0)
+        img_batch = img_batch.reshape(-1, img_batch.shape[2], img_batch.shape[3])
+        num_vals = 3
+
+        vals_batch = self.pyr.filter(img_batch.float())
+        vals_list = separate_vals(vals_batch, num_vals)
+        hl_1 = vals_list[0].high_level.squeeze(1)
+        hl_2 = vals_list[1].high_level.squeeze(1)
+        hl_p = vals_list[2].high_level.squeeze(1)
+
+        phase_uncertainty = hl_p - (hl_1+hl_2)/2
+        phase_uncertainty = phase_uncertainty.reshape(-1, 3, phase_uncertainty.shape[1], phase_uncertainty.shape[2])
+        phase_uncertainty = phase_uncertainty.mean(1).unsqueeze(1)
+
         # Fusion Net prediction
         phase_pred = phase_pred.reshape(-1, 3, phase_pred.shape[1], phase_pred.shape[2]).float()
         ada_pred = ada_pred.reshape(-1, 3, ada_pred.shape[1], ada_pred.shape[2]).float()
         other = torch.cat([lab_frame1.reshape(-1, 3, lab_frame1.shape[1], lab_frame1.shape[2]), lab_frame2.reshape(-1, 3, lab_frame2.shape[1], lab_frame2.shape[2])], 1).float()
-        final_pred = self.fusion_net(ada_pred, phase_pred, other, uncertainty_mask)
+
         # final_pred = self.fusion_net(ada_pred, phase_pred, other, uncertainty_mask, True if self.args.save else False)  # TODO save residuals
+        final_pred = self.fusion_net(ada_pred, phase_pred, other, ada_uncertainty, phase_uncertainty)
         final_pred = final_pred.reshape(-1, final_pred.shape[2], final_pred.shape[3])
 
         return final_pred
@@ -153,7 +171,7 @@ class Trainer:
             self.loss_history.append(loss)
 
             if batch_idx % 100 == 0:
-                self.test(idx=int(batch_idx/100), paths=['counter_examples/lights/001.png', 'counter_examples/lights/002.png', 'counter_examples/lights/003.png'], name='basketball')
+                #self.test(idx=int(batch_idx/100), paths=['counter_examples/lights/001.png', 'counter_examples/lights/002.png', 'counter_examples/lights/003.png'], name='basketball')
                 print('{:<13s}{:<14s}{:<6s}{:<16s}{:<12s}{:<20.16f}'.format('Train Epoch: ',
                       '[' + str(self.current_epoch) + '/' + str(self.args.epochs) + ']', 'Step: ',
                       '[' + str(batch_idx) + '/' + str(self.max_step) + ']', 'train loss: ', loss.item()))
@@ -181,12 +199,12 @@ class Trainer:
         # If no paths are given to test, break
         if paths is None:
             return
-        
+
         # Get test images
         frame1 = io.imread(paths[0])
         target = io.imread(paths[1])
         frame2 = io.imread(paths[2])
-        
+
         if frame1.shape[-1] == 4:
             frame1 = frame1[:,:,:3]
             target = target[:,:,:3]

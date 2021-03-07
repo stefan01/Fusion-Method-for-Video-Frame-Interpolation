@@ -16,7 +16,7 @@ from src.train.pyramid import Pyramid
 
 # import Models
 from src.adacof.models import Model as AdaCofModel
-from src.fusion_net.fusion_net import FusionNet
+from src.fusion_net.fusion_net import FusionNet, FusionNet2
 from src.phase_net.phase_net import PhaseNet
 
 parser = argparse.ArgumentParser(description='FusionNet-Pytorch')
@@ -69,7 +69,7 @@ def main():
 
     # Create Fusion Net
     fusion_net = FusionNet().to(device)
-    
+
     # Load phase net
     phase_net = PhaseNet(pyr, device, num_img=2)
     phase_net.eval()
