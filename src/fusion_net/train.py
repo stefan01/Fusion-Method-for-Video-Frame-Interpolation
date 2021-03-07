@@ -5,6 +5,9 @@ import random
 import numpy as np
 from types import SimpleNamespace
 import datetime
+import matplotlib.pyplot as plt
+import os
+from pathlib import Path
 
 from src.train.datareader import DBreader_Vimeo90k
 from steerable.SCFpyr_PyTorch import SCFpyr_PyTorch
@@ -35,6 +38,9 @@ parser.add_argument('--seed', type=int, default=0, help='seed')
 parser.add_argument('--lr', type=float, default=1e-4, help='learning rate')
 parser.add_argument('--lr_decay', type=int, default=0, help='learning rate decay per N epochs')
 parser.add_argument('--weight_decay', type=float, default=0, help='weight decay')
+
+# Save Residuals
+parser.add_argument('--save', type=bool, default=False, help='Save Residuals or not')
 
 
 def main():
@@ -100,13 +106,27 @@ def main():
             f.write('{}: {}\n'.format(arg, getattr(args, arg)))
         f.write('\n')
 
+    if args.save and Path(my_trainer.out_dir + '/residuals_train.txt').exists():
+        os.remove(my_trainer.out_dir + '/residuals_train.txt')
+
     # Train
     while not my_trainer.terminate():
         my_trainer.train()
         torch.save(fusion_net.state_dict(), out_dir + f'/checkpoint/model_{my_trainer.current_epoch}.pt')
 
+    # loss_hist = np.asarray(my_trainer.loss_history)
+    # np.savetxt(out_dir + '/loss_hist.txt', loss_hist)
+    # Delete Testfiles
+    os.remove(my_trainer.out_dir + '/log_train.txt')
+    os.remove(my_trainer.out_dir + '/loss_graph_train.png')
+
     loss_hist = np.asarray(my_trainer.loss_history)
-    np.savetxt(out_dir + '/loss_hist.txt', loss_hist)
+    np.savetxt(my_trainer.out_dir + '/log.txt', loss_hist)
+    plt.plot([i for i in range(len(loss_hist))], loss_hist)
+    plt.xlabel('Step')
+    plt.ylabel('Loss')
+    plt.title(f'Loss_fusion_AdacofAddition_{args.epochs}_{my_trainer.max_step}')
+    plt.savefig(my_trainer.out_dir + '/loss_graph.png')
 
     my_trainer.close()
 

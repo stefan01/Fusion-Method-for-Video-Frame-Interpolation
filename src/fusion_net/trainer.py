@@ -13,6 +13,7 @@ from src.train.loss import *
 from piq import ssim, SSIMLoss, LPIPS
 from types import SimpleNamespace
 from skimage import io
+import matplotlib.pyplot as plt
 
 # import Models
 from src.adacof.models import Model
@@ -109,6 +110,7 @@ class Trainer:
         ada_pred = ada_pred.reshape(-1, 3, ada_pred.shape[1], ada_pred.shape[2]).float()
         other = torch.cat([lab_frame1.reshape(-1, 3, lab_frame1.shape[1], lab_frame1.shape[2]), lab_frame2.reshape(-1, 3, lab_frame2.shape[1], lab_frame2.shape[2])], 1).float()
         final_pred = self.fusion_net(ada_pred, phase_pred, other, uncertainty_mask)
+        # final_pred = self.fusion_net(ada_pred, phase_pred, other, uncertainty_mask, True if self.args.save else False)  # TODO save residuals
         final_pred = final_pred.reshape(-1, final_pred.shape[2], final_pred.shape[3])
 
         return final_pred
@@ -138,6 +140,8 @@ class Trainer:
             prediction = prediction.reshape(-1, 3, prediction.shape[1], prediction.shape[2]).float()
             target = target.reshape(-1, 3, target.shape[1], target.shape[2]).float()
             loss = self.criterion(prediction, target)
+            # loss = nn.MSELoss()
+            # loss = loss(prediction, target) # first channel
 
             # Update net using backprop and gradient descent
             self.optimizer.zero_grad()
@@ -154,6 +158,22 @@ class Trainer:
                       '[' + str(self.current_epoch) + '/' + str(self.args.epochs) + ']', 'Step: ',
                       '[' + str(batch_idx) + '/' + str(self.max_step) + ']', 'train loss: ', loss.item()))
                 torch.save(self.fusion_net.state_dict(), self.out_dir + f'/checkpoint/model_{self.current_epoch}_{int(batch_idx/100)}.pt')
+
+                loss_hist = np.asarray(self.loss_history)
+                np.savetxt(self.out_dir + '/log_train.txt', loss_hist)
+                plt.plot([i for i in range(len(loss_hist))], loss_hist)
+                plt.xlabel('Step')
+                plt.ylabel('Loss')
+                plt.title(f'Loss_fusion_{self.current_epoch}_{batch_idx}/{self.max_step}')
+                plt.savefig(self.out_dir + '/loss_graph_train.png')
+            
+            if self.args.save:
+                res_value = str(self.fusion_net.residuals)
+                #np.savetxt(self.out_dir + '/log_train.txt', loss_hist)
+                with open(self.out_dir + '/residuals_train.txt', "a") as a_file:
+                    a_file.write("\n")
+                    a_file.write(res_value)
+                self.fusion_net.residuals = []
 
         self.current_epoch += 1
 
