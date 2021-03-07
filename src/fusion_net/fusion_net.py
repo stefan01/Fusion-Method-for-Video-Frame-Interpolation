@@ -5,11 +5,11 @@ import torch.nn as nn
 
 class FusionNet(torch.nn.Module):
 
-    def __init__(self, num_imgs=4):
+    def __init__(self, num_imgs=4, uncertainty_maps=2):
         super(FusionNet, self).__init__()
 
         self.net = nn.Sequential(
-                nn.Conv2d(3*num_imgs+1, 64, kernel_size=3, stride=1, padding=3, dilation=3),
+                nn.Conv2d(3*num_imgs+uncertainty_maps, 64, kernel_size=3, stride=1, padding=3, dilation=3),
                 nn.ReLU(),
                 nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=3, dilation=3),
                 nn.ReLU(),
@@ -20,8 +20,8 @@ class FusionNet(torch.nn.Module):
         )
 
 
-    def forward(self, adacof, phase, other, uncertainty_mask):
-        x = torch.cat([adacof, phase, other, uncertainty_mask], 1)
+    def forward(self, adacof, phase, other, ada_uncertainty, phase_uncertainty):
+        x = torch.cat([adacof, phase, other, ada_uncertainty, phase_uncertainty], 1)
         res = self.net(x)
         fusion_frame = adacof + res
 
