@@ -19,11 +19,25 @@ class FusionNet(torch.nn.Module):
                 nn.Tanh()
         )
 
+        self.residuals = []
 
-    def forward(self, adacof, phase, other, ada_uncertainty, phase_uncertainty):
+
+    def forward(self, adacof, phase, other, ada_uncertainty, phase_uncertainty, mode="none", save=False):
         x = torch.cat([adacof, phase, other, ada_uncertainty, phase_uncertainty], 1)
         res = self.net(x)
-        fusion_frame = adacof + res
+
+        if mode == "adacof":
+            fusion_frame = adacof + res
+        elif mode == "phase":
+            fusion_frame == phase + res
+        elif mode == "alpha":
+            fusion_frame = alpha*adacof + (1-alpha)*phase
+            return fusion_frame, alpha
+        else:
+            fusion_frame = res
+        
+        if save:
+            self.residuals.append(torch.sum(self.net(x)).cpu().detach().item())
 
         return fusion_frame
 

@@ -128,7 +128,7 @@ class Trainer:
         other = torch.cat([lab_frame1.reshape(-1, 3, lab_frame1.shape[1], lab_frame1.shape[2]), lab_frame2.reshape(-1, 3, lab_frame2.shape[1], lab_frame2.shape[2])], 1).float()
 
         # final_pred = self.fusion_net(ada_pred, phase_pred, other, uncertainty_mask, True if self.args.save else False)  # TODO save residuals
-        final_pred = self.fusion_net(ada_pred, phase_pred, other, ada_uncertainty, phase_uncertainty)
+        final_pred = self.fusion_net(ada_pred, phase_pred, other, ada_uncertainty, phase_uncertainty, save=True if self.args.save else False)
         final_pred = final_pred.reshape(-1, final_pred.shape[2], final_pred.shape[3])
 
         return final_pred
@@ -157,9 +157,10 @@ class Trainer:
             prediction = torch.clip(prediction, 0, 1)
             prediction = prediction.reshape(-1, 3, prediction.shape[1], prediction.shape[2]).float()
             target = target.reshape(-1, 3, target.shape[1], target.shape[2]).float()
-            loss = self.criterion(prediction, target)
-            # loss = nn.MSELoss()
-            # loss = loss(prediction, target) # first channel
+            
+            # loss = self.criterion(prediction, target)
+            loss = nn.MSELoss()
+            loss = loss(prediction, target) # first channel
 
             # Update net using backprop and gradient descent
             self.optimizer.zero_grad()
@@ -171,7 +172,7 @@ class Trainer:
             self.loss_history.append(loss)
 
             if batch_idx % 100 == 0:
-                #self.test(idx=int(batch_idx/100), paths=['counter_examples/lights/001.png', 'counter_examples/lights/002.png', 'counter_examples/lights/003.png'], name='basketball')
+                self.test(idx=int(batch_idx/100), paths=['counter_examples/lights/pad_001.png', 'counter_examples/lights/pad_002.png', 'counter_examples/lights/pad_003.png'], name='lights')
                 print('{:<13s}{:<14s}{:<6s}{:<16s}{:<12s}{:<20.16f}'.format('Train Epoch: ',
                       '[' + str(self.current_epoch) + '/' + str(self.args.epochs) + ']', 'Step: ',
                       '[' + str(batch_idx) + '/' + str(self.max_step) + ']', 'train loss: ', loss.item()))
