@@ -42,12 +42,19 @@ parser.add_argument('--weight_decay', type=float, default=0, help='weight decay'
 # Save Residuals
 parser.add_argument('--save', type=bool, default=False, help='Save Residuals or not')
 
+# Fusion model settings
+parser.add_argument('--model', type=str, default="none", help='Which version of fusion method')
+parser.add_argument('--dilation', type=int, default=3, help='Dilation size for kernel')
+parser.add_argument('--kernel', type=int, default=3, help='Kernel size')
+parser.add_argument('--pad', type=int, default=3, help='Padding for kernel size')
+
 
 def main():
     # Get args and set device
     args = parser.parse_args()
     torch.cuda.set_device(args.gpu_id)
-    out_dir = f"./output_fusion_net_3"
+    mode = '_' + args.model if args.model != 'none' else ''
+    out_dir = f"./output_fusion_net_3{mode}"
 
     # RNG init
     random.seed(args.seed)
@@ -68,7 +75,7 @@ def main():
     )
 
     # Create Fusion Net
-    fusion_net = FusionNet().to(device)
+    fusion_net = FusionNet(kernel=args.kernel, pad=args.dilation, dil=args.pad).to(device)
 
     # Load phase net
     phase_net = PhaseNet(pyr, device, num_img=2)
