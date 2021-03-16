@@ -15,7 +15,7 @@ from PIL import Image
 from src.adacof.models import Model
 from src.phase_net.phase_net import PhaseNet
 from types import SimpleNamespace
-from src.fusion_net.fusion_net import FusionNet
+from src.fusion_net.fusion_net import FusionNet, FusionNetBoth
 
 import matplotlib.pyplot as plt
 
@@ -195,15 +195,18 @@ def interp(args, loaded_adacof_model=None, loaded_fusion_net=None, high_level=Fa
     # Fusion Net prediction
     if args.model == 4:
         # Fusion Net prediction
-        fusion_net3 = FusionNet().to(device)
+        # fusion_net3 = FusionNet_3().to(device)
         # fusion_net3.load_state_dict(torch.load(
         #     './src/fusion_net/fusion_net3.pt'))
 
         if args.mode == "adacof":
+            fusion_net3 = FusionNet().to(device)
             fusion_net3.load_state_dict(torch.load('./src/fusion_net/fusion_net_adacof.pt'))
         elif args.mode == "phase":
+            fusion_net3 = FusionNet().to(device)
             fusion_net3.load_state_dict(torch.load('./src/fusion_net/fusion_net_phase.pt'))
         elif args.mode == "alpha":
+            fusion_net3 = FusionNetBoth().to(device)
             fusion_net3.load_state_dict(torch.load('./src/fusion_net/fusion_net_alpha.pt'))
 
         """

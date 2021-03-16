@@ -19,6 +19,41 @@ class FusionNet(torch.nn.Module):
                 nn.Tanh()
         )
 
+        self.residuals = []
+
+
+    def forward(self, adacof, phase, other, ada_uncertainty, phase_uncertainty, mode="none", save=False):
+        x = torch.cat([adacof, phase, other, ada_uncertainty, phase_uncertainty], 1)
+        res = self.net(x)
+
+        if mode == "adacof":
+            fusion_frame = adacof + res
+        elif mode == "phase":
+            fusion_frame = phase + res
+        else:
+            fusion_frame = res
+        
+        if save:
+            self.residuals.append(torch.sum(res).cpu().detach().item())
+
+        return fusion_frame
+
+class FusionNetBoth(torch.nn.Module):
+
+    def __init__(self, num_imgs=4, uncertainty_maps=2, kernel=3, pad=3, dil=3):
+        super(FusionNetBoth, self).__init__()
+
+        self.net = nn.Sequential(
+                nn.Conv2d(3*num_imgs+uncertainty_maps, 64, kernel_size=kernel, stride=1, padding=pad, dilation=dil),
+                nn.ReLU(),
+                nn.Conv2d(64, 64, kernel_size=kernel, stride=1, padding=pad, dilation=dil),
+                nn.ReLU(),
+                nn.Conv2d(64, 64, kernel_size=kernel, stride=1, padding=pad, dilation=dil),
+                nn.ReLU(),
+                nn.Conv2d(64, 3, kernel_size=kernel, stride=1, padding=pad, dilation=dil),
+                nn.Tanh()
+        )
+
         self.net_alpha = nn.Sequential(
                 nn.Conv2d(3*num_imgs+uncertainty_maps, 64, kernel_size=3, stride=1, padding=3, dilation=3),
                 nn.ReLU(),
@@ -31,30 +66,18 @@ class FusionNet(torch.nn.Module):
         self.residuals = []
 
 
-    def forward(self, adacof, phase, other, ada_uncertainty, phase_uncertainty, mode="none", save=False):
+    def forward(self, adacof, phase, other, ada_uncertainty, phase_uncertainty, mode="alpha", save=False):
         x = torch.cat([adacof, phase, other, ada_uncertainty, phase_uncertainty], 1)
         res = self.net(x)
 
-        if mode == "adacof":
-            fusion_frame = adacof + res
-        elif mode == "phase":
-            fusion_frame = phase + res
-        elif mode == "alpha":
-            alpha = self.net_alpha(x)
-            fusion_frame = (alpha*adacof + (1-alpha)*phase) + res
-
-            if save:
-                self.residuals.append(torch.sum(res).cpu().detach().item())
-                self.residuals.append(torch.sum(alpha).cpu().detach().item())
-            
-            return fusion_frame, alpha
-        else:
-            fusion_frame = res
+        alpha = self.net_alpha(x)
+        fusion_frame = (alpha*adacof + (1-alpha)*phase) + res
         
         if save:
-            self.residuals.append(torch.sum(res).cpu().detach().item())
+                self.residuals.append(torch.sum(res).cpu().detach().item())
+                self.residuals.append(torch.sum(alpha).cpu().detach().item())
 
-        return fusion_frame
+        return fusion_frame, alpha
 
 class FusionNet2(torch.nn.Module):
 
