@@ -25,12 +25,12 @@ class FusionNet(torch.nn.Module):
         res = self.net(x)
         fusion_frame = adacof + res
 
-        return fusion_frame
+        return fusion_frame, {}
 
 class FusionNet2(torch.nn.Module):
 
     def __init__(self, num_imgs=4):
-        super(FusionNet, self).__init__()
+        super(FusionNet2, self).__init__()
 
         self.net = nn.Sequential(
                 nn.Conv2d(3*num_imgs+1, 64, kernel_size=3, stride=1, padding=3, dilation=3),

@@ -9,6 +9,7 @@ from src.train.transform import *
 from src.train.pyramid import Pyramid
 import warnings
 import torchvision.transforms as transforms
+from scipy.ndimage import gaussian_filter, maximum_filter
 
 
 # Warnings and device
@@ -17,18 +18,18 @@ device = torch.device('cuda:0')
 device_cpu = torch.device('cpu')
 
 # Import images
-img_1 = np.array(Image.open('Testset/Clip8/000.png'))
-img_g = np.array(Image.open('Testset/Clip8/000.png'))
-img_2 = np.array(Image.open('Testset/Clip8/001.png'))
+#img_1 =        np.array(Image.open('Testset/lights/119.png'))
+#img_g_loaded = np.array(Image.open('Testset/lights/120.png'))
+#img_2 =        np.array(Image.open('Testset/lights/121.png'))
+img_1 =        np.array(Image.open('Testset/Clip2/009.png'))
+img_g_loaded = np.array(Image.open('Testset/Clip2/010.png'))
+img_2 =        np.array(Image.open('Testset/Clip2/011.png'))
 shape_r = img_1.shape
-print(shape_r)
 
 # Normalize and pad images
 img_1 = pad_img(img_1/255)
-img_g = pad_img(img_g/255)
+img_g = pad_img(img_g_loaded/255)
 img_2 = pad_img(img_2/255)
-
-#Image.fromarray((img_1*255).astype('uint8'), 'RGB').show()
 
 # To tensors
 img_1 = rgb2lab_single(torch.as_tensor(img_1).permute(2, 0, 1).float()).to(device)
@@ -37,7 +38,7 @@ img_2 = rgb2lab_single(torch.as_tensor(img_2).permute(2, 0, 1).float()).to(devic
 
 # RGB space
 #img_1 = torch.as_tensor(img_1).permute(2, 0, 1).float().to(device)
-#img_g = torch.as_tensor(img_g).permute(2, 0, 1).float().to(device)
+img_g_loaded = torch.as_tensor(img_g_loaded).permute(2, 0, 1).float()/255
 #img_2 = torch.as_tensor(img_2).permute(2, 0, 1).float().to(device)
 
 
@@ -79,9 +80,35 @@ for c in range(3):
 
 # Put picture together
 result = torch.cat(result, 0)
-img_p = lab2rgb_single(result)
+img_p_pad = lab2rgb_single(result)
 
-img_p = img_p[:, :shape_r[0], :shape_r[1]]
+img_p = img_p_pad[:, :shape_r[0], :shape_r[1]]
 
 # Show frame
-transforms.ToPILImage()(img_p).save('fire.png')
+transforms.ToPILImage()(img_p).resize((853, 480)).show()
+
+# Show error
+img_err = torch.abs(img_p - img_g_loaded)
+img_err /= img_err.max()
+img_err = img_err.mean(0)
+transforms.ToPILImage()(img_err).resize((853, 480)).show()
+
+# Show uncertainty
+vals_1 = pyr.filter(img_1.float())
+vals_2 = pyr.filter(img_2.float())
+vals_g = pyr.filter(img_g.float())
+vals_p = pyr.filter(img_p_pad.to(device).float())
+
+# Show high values
+hl_1 = vals_1.high_level.squeeze(1).cpu()[:, :shape_r[0], :shape_r[1]]
+hl_2 = vals_2.high_level.squeeze(1).cpu()[:, :shape_r[0], :shape_r[1]]
+hl_p = vals_p.high_level.squeeze(1).cpu()[:, :shape_r[0], :shape_r[1]]
+unc = hl_p - (hl_1+hl_2)
+unc /= unc.max()
+unc = unc.mean(0).numpy()
+#unc = maximum_filter(unc, size=5)
+transforms.ToPILImage()(torch.as_tensor(unc).float()).resize((853, 480)).show()
+
+# Adacof
+from src.adacof.models import Model as AdaCofModel
+from types import SimpleNamespace

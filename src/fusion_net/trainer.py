@@ -32,6 +32,7 @@ class Trainer:
         self.current_epoch = start_epoch
         self.device = my_pyr.device
         self.criterion = LPIPS()
+        self.mse = nn.L1Loss()
 
         # Models
         self.fusion_net = fusion_net
@@ -105,7 +106,7 @@ class Trainer:
         phase_pred = phase_pred.reshape(-1, 3, phase_pred.shape[1], phase_pred.shape[2]).float()
         ada_pred = ada_pred.reshape(-1, 3, ada_pred.shape[1], ada_pred.shape[2]).float()
         other = torch.cat([lab_frame1.reshape(-1, 3, lab_frame1.shape[1], lab_frame1.shape[2]), lab_frame2.reshape(-1, 3, lab_frame2.shape[1], lab_frame2.shape[2])], 1).float()
-        final_pred = self.fusion_net2(ada_pred, phase_pred, other, uncertainty_mask)
+        final_pred, _ = self.fusion_net(ada_pred, phase_pred, other, uncertainty_mask)
         final_pred = final_pred.reshape(-1, final_pred.shape[2], final_pred.shape[3])
 
         return final_pred
@@ -134,6 +135,7 @@ class Trainer:
             prediction = torch.clip(prediction, 0, 1)
             prediction = prediction.reshape(-1, 3, prediction.shape[1], prediction.shape[2]).float()
             target = target.reshape(-1, 3, target.shape[1], target.shape[2]).float()
+            #loss = self.mse(prediction, target)
             loss = self.criterion(prediction, target)
 
             # Update net using backprop and gradient descent

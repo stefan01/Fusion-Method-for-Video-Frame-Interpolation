@@ -76,6 +76,8 @@ def evaluate_dataset(args, dataset_path):
     """
     print('Evaluating Dataset ', dataset_path)
 
+    dataset_name = os.path.basename(dataset_path)
+
     if args.vimeo_testset:
         output_path_adacof = os.path.join(
             args.base_dir, args.img_output, 'adacof', dataset_path, '*', 'im2.png')
@@ -85,11 +87,14 @@ def evaluate_dataset(args, dataset_path):
             args.base_dir, args.img_output, 'fusion', dataset_path, '*', 'im2.png')
     else:
         output_path_adacof = os.path.join(
-            args.base_dir, args.img_output, dataset_path, 'adacof', '*')
+            args.base_dir, args.img_output, dataset_name, 'adacof', '*')
         output_path_phasenet = os.path.join(
-            args.base_dir, args.img_output, dataset_path, 'phasenet', '*')
+            args.base_dir, args.img_output, dataset_name, 'phasenet', '*')
         output_path_fusion = os.path.join(
-            args.base_dir, args.img_output, dataset_path, 'fusion', '*')
+            args.base_dir, args.img_output, dataset_name, 'fusion', '*')
+        
+        print(dataset_name)
+        print(output_path_adacof)
 
     if args.adacof:
         prediction_folder_adacof = sorted(
@@ -232,7 +237,7 @@ def eval(args):
     results_np = []
     for testset in args.test_sets:
         result_path = os.path.join(
-            args.base_dir, 'result_{}.npy'.format(testset))
+            args.base_dir, 'result_{}.npy'.format(os.path.basename(testset)))
         if os.path.exists(result_path):
             result_np = np.load(result_path)
         else:
@@ -245,9 +250,8 @@ def eval(args):
     testset_path = 'Testset/'
 
     if args.adacof and args.phase and args.fusion:
-        pass
-        # visualizations.create_images(
-        #    args, args.test_sets, testset_path, img_output_dir)
+        visualizations.create_images(
+           args, args.test_sets, testset_path, img_output_dir)
 
         # Show Results
     '''i = 0

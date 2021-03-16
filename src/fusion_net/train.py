@@ -41,7 +41,7 @@ def main():
     # Get args and set device
     args = parser.parse_args()
     torch.cuda.set_device(args.gpu_id)
-    out_dir = f"./output_fusion_net_3"
+    out_dir = f"./output_fusion_net_alpha_lpips"
 
     # RNG init
     random.seed(args.seed)
@@ -62,7 +62,7 @@ def main():
     )
 
     # Create Fusion Net
-    fusion_net = FusionNet().to(device)
+    fusion_net = FusionNet2().to(device)
 
     # Load phase net
     phase_net = PhaseNet(pyr, device, num_img=2)
