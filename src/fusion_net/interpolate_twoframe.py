@@ -168,11 +168,24 @@ def interp(args, loaded_adacof_model=None, loaded_fusion_net=None, high_level=Fa
         vals_inp = get_concat_layers_inf(pyr, vals_list)
         inp = fusion_net.normalize_vals(vals_inp)
 
+        if args.model == 3:
+            hl_1 = vals_list[0].high_level.squeeze(1)
+            hl_2 = vals_list[1].high_level.squeeze(1)
+            hl_p = vals_list[2].high_level.squeeze(1)
+            phase_uncertainty = hl_p - (hl_1+hl_2)/2
+            phase_uncertainty = phase_uncertainty.reshape(-1, 3, phase_uncertainty.shape[1], phase_uncertainty.shape[2])
+            phase_uncertainty = phase_uncertainty.mean(1).unsqueeze(1)
+
+            del hl_1
+            del hl_2
+            del hl_p
+
         # Delete all old values to free memory
         del vals
         del vals_list
         del vals_t
         del vals_inp
+
         torch.cuda.empty_cache()
 
         # predicted intersected image of frame1 and frame2
@@ -195,8 +208,9 @@ def interp(args, loaded_adacof_model=None, loaded_fusion_net=None, high_level=Fa
     if args.model == 3:
         # Fusion Net prediction
         fusion_net3 = FusionNet().to(device)
-        fusion_net3.load_state_dict(torch.load(
-            './src/fusion_net/fusion_net3.pt'))
+        # fusion_net3.load_state_dict(torch.load(
+        #     './src/fusion_net/fusion_net3.pt'))
+        fusion_net3.load_state_dict(torch.load(args.fusion_checkpoint))
 
         phase_pred = result[:, :shape_r[0], :shape_r[1]].to(
             device).unsqueeze(0).float()
@@ -204,7 +218,10 @@ def interp(args, loaded_adacof_model=None, loaded_fusion_net=None, high_level=Fa
         other = torch.cat([img_1[:, :shape_r[0], :shape_r[1]].reshape(-1, 3, shape_r[0], shape_r[1]),
                            img_2[:, :shape_r[0], :shape_r[1]].reshape(-1, 3, shape_r[0], shape_r[1])], 1).float()
 
-        final_pred = fusion_net3(ada_pred, phase_pred, other, uncertainty_mask)
+        if self.args.model == "alpha":
+            final_pred, _ = fusion_net3(ada_pred, phase_pred, other, uncertainty_mask, phase_uncertainty, mode="alpha")
+        else:
+            final_pred = fusion_net3(ada_pred, phase_pred, other, uncertainty_mask, phase_uncertainty, mode=args.mode)
         img_p = final_pred.reshape(-1,
                                    final_pred.shape[2], final_pred.shape[3])
         img_p = lab2rgb_single(img_p)

@@ -19,6 +19,15 @@ class FusionNet(torch.nn.Module):
                 nn.Tanh()
         )
 
+        self.net_alpha = nn.Sequential(
+                nn.Conv2d(3*num_imgs+uncertainty_maps, 64, kernel_size=3, stride=1, padding=3, dilation=3),
+                nn.ReLU(),
+                nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=3, dilation=3),
+                nn.ReLU(),
+                nn.Conv2d(64, 3, kernel_size=3, stride=1, padding=3, dilation=3),
+                nn.Sigmoid()
+        )
+
         self.residuals = []
 
 
@@ -29,15 +38,21 @@ class FusionNet(torch.nn.Module):
         if mode == "adacof":
             fusion_frame = adacof + res
         elif mode == "phase":
-            fusion_frame == phase + res
+            fusion_frame = phase + res
         elif mode == "alpha":
-            fusion_frame = alpha*adacof + (1-alpha)*phase
+            alpha = self.net_alpha(x)
+            fusion_frame = (alpha*adacof + (1-alpha)*phase) + res
+
+            if save:
+                self.residuals.append(torch.sum(res).cpu().detach().item())
+                self.residuals.append(torch.sum(alpha).cpu().detach().item())
+            
             return fusion_frame, alpha
         else:
             fusion_frame = res
         
         if save:
-            self.residuals.append(torch.sum(self.net(x)).cpu().detach().item())
+            self.residuals.append(torch.sum(res).cpu().detach().item())
 
         return fusion_frame
 

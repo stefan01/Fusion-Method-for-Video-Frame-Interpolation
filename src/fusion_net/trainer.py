@@ -128,7 +128,11 @@ class Trainer:
         other = torch.cat([lab_frame1.reshape(-1, 3, lab_frame1.shape[1], lab_frame1.shape[2]), lab_frame2.reshape(-1, 3, lab_frame2.shape[1], lab_frame2.shape[2])], 1).float()
 
         # final_pred = self.fusion_net(ada_pred, phase_pred, other, uncertainty_mask, True if self.args.save else False)  # TODO save residuals
-        final_pred = self.fusion_net(ada_pred, phase_pred, other, ada_uncertainty, phase_uncertainty, mode=self.args.model, save=True if self.args.save else False)
+        if self.args.model == "alpha":
+            final_pred, self.alpha = self.fusion_net(ada_pred, phase_pred, other, ada_uncertainty, phase_uncertainty, mode=self.args.model, save=True if self.args.save else False)
+        else:
+            final_pred = self.fusion_net(ada_pred, phase_pred, other, ada_uncertainty, phase_uncertainty, mode=self.args.model, save=True if self.args.save else False)
+        
         final_pred = final_pred.reshape(-1, final_pred.shape[2], final_pred.shape[3])
 
         return final_pred

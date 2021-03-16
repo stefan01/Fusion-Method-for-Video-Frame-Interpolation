@@ -66,6 +66,7 @@ parser.add_argument('--fusion_adacof_model', type=str,
 parser.add_argument('--fusion_model', type=int, default=1)
 parser.add_argument('--fusion_replace_high_level', action='store_true')
 parser.add_argument('--vimeo_testset', action='store_true')
+parser.add_argument('--mode', type=str, default='alpha')
 
 
 def evaluate_dataset(args, dataset_path):
@@ -198,7 +199,7 @@ def eval(args):
     if args.fusion_model == 2:
         num_img = 3
         load_path = './src/fusion_net/fusion_net2.pt'
-    if args.fusion_model == 3:
+    if args.fusion_model >= 3:
         num_img = 2
         load_path = './src/phase_net/phase_net.pt'
     pyr = Pyramid(
