@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+from src.adacof.models import Model as AdaCofModel
 import numpy as np
 import torch
 from collections import namedtuple
@@ -21,9 +23,9 @@ device_cpu = torch.device('cpu')
 #img_1 =        np.array(Image.open('Testset/lights/119.png'))
 #img_g_loaded = np.array(Image.open('Testset/lights/120.png'))
 #img_2 =        np.array(Image.open('Testset/lights/121.png'))
-img_1 =        np.array(Image.open('Testset/Clip2/009.png'))
+img_1 = np.array(Image.open('Testset/Clip2/009.png'))
 img_g_loaded = np.array(Image.open('Testset/Clip2/010.png'))
-img_2 =        np.array(Image.open('Testset/Clip2/011.png'))
+img_2 = np.array(Image.open('Testset/Clip2/011.png'))
 shape_r = img_1.shape
 
 # Normalize and pad images
@@ -32,9 +34,12 @@ img_g = pad_img(img_g_loaded/255)
 img_2 = pad_img(img_2/255)
 
 # To tensors
-img_1 = rgb2lab_single(torch.as_tensor(img_1).permute(2, 0, 1).float()).to(device)
-img_g = rgb2lab_single(torch.as_tensor(img_g).permute(2, 0, 1).float()).to(device)
-img_2 = rgb2lab_single(torch.as_tensor(img_2).permute(2, 0, 1).float()).to(device)
+img_1 = rgb2lab_single(torch.as_tensor(
+    img_1).permute(2, 0, 1).float()).to(device)
+img_g = rgb2lab_single(torch.as_tensor(
+    img_g).permute(2, 0, 1).float()).to(device)
+img_2 = rgb2lab_single(torch.as_tensor(
+    img_2).permute(2, 0, 1).float()).to(device)
 
 # RGB space
 #img_1 = torch.as_tensor(img_1).permute(2, 0, 1).float().to(device)
@@ -110,5 +115,3 @@ unc = unc.mean(0).numpy()
 transforms.ToPILImage()(torch.as_tensor(unc).float()).resize((853, 480)).show()
 
 # Adacof
-from src.adacof.models import Model as AdaCofModel
-from types import SimpleNamespace

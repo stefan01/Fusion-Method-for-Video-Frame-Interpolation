@@ -76,7 +76,8 @@ def interpolate_fusion(args, adacof_model, fusion_net, a, b, output):
                 model=args.fusion_model,
                 loaded_adacof_model=adacof_model,
                 loaded_fusion_net=fusion_net,
-                high_level=args.fusion_replace_high_level
+                high_level=args.fusion_replace_high_level,
+                mode=args.mode
             ))
         torch.cuda.empty_cache()
 
