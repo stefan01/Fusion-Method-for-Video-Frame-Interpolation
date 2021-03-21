@@ -204,3 +204,143 @@ def preprocess(img: torch.Tensor, device, normalized=True):
     else:
         print('Img has a not supported type:', img.__class__)
         return img
+    
+def combine_values(vals_list):
+    """ Combines a list of values into one values """
+    # High and low values
+    ll_list = [s_val.low_level for s_val in vals_list]
+    hl_list = [s_val.high_level for s_val in vals_list]
+
+    ll = torch.cat(ll_list, 0)
+    hl = torch.cat(hl_list, 0)
+    
+    # Amplitude and phase values
+    a = []
+    p = []
+    
+    for i in range(len(vals_list[0].phase)):
+      a_list = [s_val.amplitude[i] for s_val in vals_list]
+      p_list = [s_val.phase[i] for s_val in vals_list]
+      
+      a_entry = torch.cat(a_list, 0)
+      p_entry = torch.cat(p_list, 0)
+
+      a.append(a_entry)
+      p.append(p_entry)
+      
+    
+    # Values
+    val = DecompValues(
+      high_level=hl,
+      low_level=ll,
+      phase=p,
+      amplitude=a
+    )
+    
+    return val
+        
+def get_last_value_levels(vals, use_levels = 1):
+    # Create values with only the highest frequencies non zero (but not high level!)
+
+    # Get important information
+    ll_shape = vals.low_level.shape
+    hl_shape = vals.high_level.shape
+    device = vals.low_level.device
+    levels = len(vals.phase)
+    
+    ll = torch.zeros(ll_shape).to(device)
+    hl = vals.high_level.clone()#torch.zeros(hl_shape).to(device)
+
+    # Phase
+    p = []
+    for i, phase in enumerate(vals.phase):
+        if i >= use_levels:
+            p_shape = phase.shape
+            p.append(torch.zeros(p_shape).to(device))
+        else:
+            p.append(phase.clone())
+
+    # Amplitude
+    a = []
+    for i, ampl in enumerate(vals.amplitude):
+        if i >= use_levels:
+            a_shape = ampl.shape
+            a.append(torch.zeros(a_shape).to(device))
+        else:
+            a.append(ampl.clone())
+
+    # Values
+    val = DecompValues(
+      high_level=hl,
+      low_level=ll,
+      phase=p,
+      amplitude=a
+    )
+    
+    return val
+    
+def get_first_value_levels(vals, use_levels = 1):
+    # Create values with only the highest frequencies non zero (but not high level!)
+
+    # Get important information
+    ll_shape = vals.low_level.shape
+    hl_shape = vals.high_level.shape
+    device = vals.low_level.device
+    levels = len(vals.phase)
+    
+    ll = vals.low_level.clone()##torch.zeros(ll_shape).to(device)
+    hl = torch.zeros(hl_shape).to(device)
+
+    # Phase
+    p = []
+    for i, phase in enumerate(vals.phase):
+        if i < levels-use_levels:
+            p_shape = phase.shape
+            p.append(torch.zeros(p_shape).to(device))
+        else:
+            p.append(phase.clone())
+
+    # Amplitude
+    a = []
+    for i, ampl in enumerate(vals.amplitude):
+        if i < levels-use_levels:
+            a_shape = ampl.shape
+            a.append(torch.zeros(a_shape).to(device))
+        else:
+            a.append(ampl.clone())
+
+    # Values
+    val = DecompValues(
+      high_level=hl,
+      low_level=ll,
+      phase=p,
+      amplitude=a
+    )
+    
+    return val
+    
+def subtract_values(vals1, vals2):
+    # Subtract two values and return the absolute error values
+
+    ll = torch.abs(vals1.low_level - vals2.low_level)
+    hl = torch.abs(vals1.high_level - vals2.high_level)
+
+    # Phase
+    p = []
+    for p1, p2 in zip(vals1.phase, vals2.phase):
+        p.append(torch.abs(p1 - p2))
+
+    # Amplitude
+    a = []
+    for a1, a2 in zip(vals1.amplitude, vals2.amplitude):
+        a.append(torch.abs(a1 - a2))
+
+    # Values
+    val = DecompValues(
+      high_level=hl,
+      low_level=ll,
+      phase=p,
+      amplitude=a
+    )
+    
+    return val

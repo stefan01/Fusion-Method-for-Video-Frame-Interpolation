@@ -36,7 +36,7 @@ class FusionNet(torch.nn.Module):
         if save:
             self.residuals.append(torch.sum(res).cpu().detach().item())
 
-        return fusion_frame, {}
+        return fusion_frame
 
 class FusionNetBoth(torch.nn.Module):
 
@@ -82,7 +82,7 @@ class FusionNetBoth(torch.nn.Module):
 class FusionNet2(torch.nn.Module):
 
     def __init__(self, num_imgs=4):
-        super(FusionNet2, self).__init__()
+        super(FusionNet, self).__init__()
 
         self.net = nn.Sequential(
                 nn.Conv2d(3*num_imgs+1, 64, kernel_size=3, stride=1, padding=3, dilation=3),

@@ -49,17 +49,17 @@ def create_images(args, testset, test_path, inter_path):
             #    os.listdir(test_path + "/" + i))][1:-1]
 
             inter_image_adacof = sorted(
-                glob.glob(os.path.join(inter_path, i, 'adacof', '*')))
+                glob.glob(os.path.join(inter_path, os.path.basename(i), 'adacof', '*')))
             # inter_image_adacof = [os.path.join(inter_path, i, 'adacof', interpolate) for interpolate in sorted(
             #    os.listdir(os.path.join(inter_path, i, 'adacof')))]
 
             inter_image_phasenet = sorted(
-                glob.glob(os.path.join(inter_path, i, 'phasenet', '*')))
+                glob.glob(os.path.join(inter_path, os.path.basename(i), 'phasenet', '*')))
             # inter_image_phasenet = [os.path.join(inter_path, i, 'phasenet', interpolate) for interpolate in sorted(
             #    os.listdir(os.path.join(inter_path, i, 'phasenet')))]
 
             inter_image_fusion = sorted(
-                glob.glob(os.path.join(inter_path, i, 'fusion', '*')))
+                glob.glob(os.path.join(inter_path, os.path.basename(i), 'fusion', '*')))
             # inter_image_fusion = [os.path.join(inter_path, i, 'fusion', interpolate) for interpolate in sorted(
             #    os.listdir(os.path.join(inter_path, i, 'fusion')))]
 
@@ -67,7 +67,7 @@ def create_images(args, testset, test_path, inter_path):
             start_index = int(os.path.splitext(
                 os.path.basename(inter_image_adacof[0]))[0]) - 1
 
-        error = np.load(os.path.join(args.base_dir, 'result_{}.npy'.format(i)))
+        error = np.load(os.path.join(args.base_dir, 'result_{}.npy'.format(os.path.basename(i))))
 
         for image_idx in range(len(inter_image_adacof)):
             if args.adacof:
@@ -329,32 +329,43 @@ def draw_measurements(args, datasets, datasets_results):
     #plt.figure(figsize=(len(datasets_results), 10))
 
     fig, axs = plt.subplots(
-        3, sharex=True, figsize=(len(datasets_results), 10))
+        4, sharex=True, figsize=(len(datasets_results)+9, 20))
 
     plt.title('Results')
     for interpolation_method_idx in range(datasets_results[0].shape[1]):
         avg_plot = np.array([x[interpolation_method_idx, 0] for x in avg_data])
         axs[0].set_title('SSIM')
         axs[0].grid()
-        axs[0].bar(x + interpolation_method_idx*bar_width - (datasets_results[0].shape[1]*bar_width)/2 + 0.5*bar_width, avg_plot, bar_width-0.02,
+        rects0 = axs[0].bar(x + interpolation_method_idx*bar_width - (datasets_results[0].shape[1]*bar_width)/2 + 0.5*bar_width, avg_plot, bar_width-0.02,
                    align='center', label=interpolation_methods[interpolation_method_idx])
-        axs[0].legend()
+        axs[0].legend(loc='upper right')
+        autolabel(axs[0], rects0)
 
         avg_plot = np.array([x[interpolation_method_idx, 1] for x in avg_data])
         axs[1].set_title('LPIPS')
         axs[1].grid()
-        axs[1].bar(x + interpolation_method_idx*bar_width - (datasets_results[0].shape[1]*bar_width)/2 + 0.5*bar_width, avg_plot, bar_width-0.02,
+        rects1 = axs[1].bar(x + interpolation_method_idx*bar_width - (datasets_results[0].shape[1]*bar_width)/2 + 0.5*bar_width, avg_plot, bar_width-0.02,
                    align='center', label=interpolation_methods[interpolation_method_idx])
-        axs[1].legend()
+        axs[1].legend(loc='upper right')
+        autolabel(axs[1], rects1)
 
         avg_plot = np.array([x[interpolation_method_idx, 2] for x in avg_data])
         axs[2].set_title('PSNR')
         axs[2].grid()
-        axs[2].bar(x + interpolation_method_idx*bar_width - (datasets_results[0].shape[1]*bar_width)/2 + 0.5*bar_width, avg_plot, bar_width-0.02,
+        rects2 = axs[2].bar(x + interpolation_method_idx*bar_width - (datasets_results[0].shape[1]*bar_width)/2 + 0.5*bar_width, avg_plot, bar_width-0.02,
                    align='center', label=interpolation_methods[interpolation_method_idx])
-        axs[2].legend()
-        #plt.bar(min_data[:, interpolation_method_idx, 1], 'o', label='MIN')
-        #plt.bar(max_data[:, interpolation_method_idx, 1], 'o', label='MAX')
+        axs[2].legend(loc='upper right')
+        autolabel(axs[2], rects2)
+
+        avg_plot = np.array([x[interpolation_method_idx, 3] for x in avg_data])
+        axs[3].set_title('SSD')
+        axs[3].grid()
+        rects3 = axs[3].bar(x + interpolation_method_idx*bar_width - (datasets_results[0].shape[1]*bar_width)/2 + 0.5*bar_width, avg_plot, bar_width-0.02,
+                   align='center', label=interpolation_methods[interpolation_method_idx])
+        axs[3].legend(loc='upper right')
+        autolabel(axs[3], rects3)
+
+    #axs[4].table(cellText=datasets_results)
 
     plt.xticks(x, datasets)
     plt.ylim(bottom=0)
@@ -362,3 +373,13 @@ def draw_measurements(args, datasets, datasets_results):
     plt.savefig(os.path.join(args.base_dir,
                              'results.png'))
     plt.clf()
+
+def autolabel(ax, rects):
+    """Attach a text label above each bar in *rects*, displaying its height."""
+    for rect in rects:
+        height = rect.get_height()
+        ax.annotate('{:.2f}'.format(height),
+                    xy=(rect.get_x() + rect.get_width() / 2, height),
+                    xytext=(0, 3),  # 3 points vertical offset
+                    textcoords="offset points",
+                    ha='center', va='bottom')

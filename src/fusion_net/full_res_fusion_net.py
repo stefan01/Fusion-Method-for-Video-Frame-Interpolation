@@ -11,7 +11,7 @@ import warnings
 import torchvision.transforms as transforms
 from types import SimpleNamespace
 from src.adacof.models import Model
-from src.fusion_net.fusion_net import FusionNet
+from src.fusion_net.fusion_net import FusionNet, FusionNet2
 
 # Warnings and device
 warnings.filterwarnings("ignore")
@@ -112,14 +112,14 @@ print(shape_r)
 #print(img_p.shape, ada_pred.shape, uncertainty_mask.shape)
 
 # Fusion Net prediction
-fusion_net3 = FusionNet().to(device)
-fusion_net3.load_state_dict(torch.load('./src/fusion_net/fusion_net3.pt'))
+fusion_net3 = FusionNet2().to(device)
+fusion_net3.load_state_dict(torch.load('./src/fusion_net/alpha_lpips.pt'))
 
 phase_pred = img_p.to(device).unsqueeze(0).float()
 ada_pred = ada_pred.to(device).float()
 other = torch.cat([img_1[:, :shape_r[0], :shape_r[1]].reshape(-1, 3, shape_r[0], shape_r[1]), img_2[:, :shape_r[0], :shape_r[1]].reshape(-1, 3, shape_r[0], shape_r[1])], 1).float()
 
-final_pred = fusion_net3(ada_pred, phase_pred, other, uncertainty_mask)
+final_pred, _ = fusion_net3(ada_pred, phase_pred, other, uncertainty_mask)
 final_pred = final_pred.reshape(-1, final_pred.shape[2], final_pred.shape[3])
 
 
