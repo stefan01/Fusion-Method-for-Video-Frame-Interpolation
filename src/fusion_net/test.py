@@ -90,7 +90,7 @@ def interp(args, loaded_adacof_model=None, loaded_fusion_net=None, high_level=Fa
     shape_r = rgb_frame1.shape
 
     with torch.no_grad():
-        frame_out1, frame_out2, ada_res, uncertainty_mask = adacof_model(
+        frame_out1, frame_out2, ada_res, _ = adacof_model(
             torch.as_tensor(rgb_frame1).permute(
                 2, 0, 1).float().unsqueeze(0).to(device)/255,
             torch.as_tensor(rgb_frame2).permute(2, 0, 1).float().unsqueeze(0).to(device)/255)
@@ -103,24 +103,11 @@ def interp(args, loaded_adacof_model=None, loaded_fusion_net=None, high_level=Fa
         frame_out2_pad = pad_img(frame_out2)
         frame_ada_res_pad = pad_img(frame_ada_res)
         
-    # Save uncertainty adacof map
-    u_ada = uncertainty_mask.squeeze(1).detach().cpu()
-    u_ada = transforms.ToPILImage()(u_ada)
-    u_ada.save(args.out_dir + f'{args.output}_uncertainty_adacof1.png')
     
     # Save adacof prediction
     p_ada = torch.as_tensor(frame_ada_res).permute(2, 0, 1)
     p_ada = transforms.ToPILImage()(p_ada)
-    p_ada.save(args.out_dir + f'{args.output}_prediction_adacof.png')
-    
-    
-    # Save difference adacof/ground truth map
-    difference_adacof = np.average(
-        np.abs(rgb_ground_truth/255 - frame_ada_res), axis=2)
-    
-    plt.imshow(difference_adacof, interpolation='none',
-               cmap='jet', vmin=0, vmax=1)
-    plt.savefig(args.out_dir + f'{args.output}_adacof_diff.png', dpi=600)
+    p_ada.save(args.out_dir + f'{args.output}_a1.png')
 
     # Normalize and pad images
     img_1_pad = pad_img(rgb_frame1/255)
@@ -152,13 +139,6 @@ def interp(args, loaded_adacof_model=None, loaded_fusion_net=None, high_level=Fa
         device=device,
     )
 
-    # High level
-    #if args.high_level:
-    #    ada_pyr = pyr.filter(frame_res)
-    #    ada_hl = ada_pyr.high_level.clone().detach()
-    #    del ada_pyr
-    #    torch.cuda.empty_cache()
-
     # Create FusionNet
     num_img = 2
     load_path = './src/phase_net/phase_net.pt'
@@ -166,12 +146,10 @@ def interp(args, loaded_adacof_model=None, loaded_fusion_net=None, high_level=Fa
     phase_net = PhaseNet(pyr, device, num_img=num_img)
     phase_net.load_state_dict(torch.load(load_path))
     phase_net.eval()
-
   
     # Save intermediate results
     result = []
     values = []
-
 
     # Predict per channel, so we save memory
     for c in range(3):
@@ -195,9 +173,6 @@ def interp(args, loaded_adacof_model=None, loaded_fusion_net=None, high_level=Fa
         with torch.no_grad():
             vals_r = phase_net(inp)
 
-        #if high_level:
-        #    vals_r.high_level[:] = ada_hl[c]
-
         img_r = pyr.inv_filter(vals_r).detach().cpu()
         values.append(vals_r)
         result.append(img_r)
@@ -213,63 +188,42 @@ def interp(args, loaded_adacof_model=None, loaded_fusion_net=None, high_level=Fa
     # Save phase net prediction
     p_phase = torch.as_tensor(img_p).detach().cpu()
     p_phase = transforms.ToPILImage()(p_phase)
-    p_phase.save(args.out_dir + f'{args.output}_prediction_phase_net.png')
+    p_phase.save(args.out_dir + f'{args.output}_p1.png')
     
-    # Phase Net uncertainty map
-    # First get high level residuals of both input frames
-    ada_pred = torch.as_tensor(frame_ada_res_pad).to(device).permute(2, 0, 1)
+    print(rgb_frame1[:, :shape_r[0], :shape_r[1]].shape, img_p.shape)
+    with torch.no_grad():
+        _, _, test1, _ = adacof_model(
+            rgb_frame1[:, :shape_r[0], :shape_r[1]].unsqueeze(0).to(device).float(),
+            img_p.unsqueeze(0).to(device).float())
 
-    img_batch = torch.cat((ada_pred, rgb_pred.to(device), rgb_ground_truth.to(device)), 0)
-    img_batch = img_batch.reshape(-1, img_batch.shape[1], img_batch.shape[2])
-    num_vals = 3
+        test1 = test1.squeeze(0).cpu().float()
+        print(test1.shape)
+        
+        _, _, test2, _ = adacof_model(
+            img_p.unsqueeze(0).to(device).float(),
+            rgb_frame2[:, :shape_r[0], :shape_r[1]].unsqueeze(0).to(device).float())
+        test2 = test2.squeeze(0).cpu().float()
+        
+        _, _, final, _ = adacof_model(
+            test1.unsqueeze(0).to(device).float(),
+            test2.unsqueeze(0).to(device).float())
 
-    vals_batch = pyr.filter(img_batch.float())
-    vals_ada, vals_ph, vals_g = separate_vals(vals_batch, num_vals)
-    
-    # Since it's not easily possible to predict high level residuals we extract the highest frequencies we can extract
-    vals_high = get_last_value_levels(vals_ada, use_levels=1)
-    vals_high_ph = get_last_value_levels(vals_ph, use_levels=1)
-    h_freq = pyr.inv_filter(vals_high).detach().cpu()[:, :shape_r[0], :shape_r[1]].mean(0)
-    h_freq_ph = pyr.inv_filter(vals_high_ph).detach().cpu()[:, :shape_r[0], :shape_r[1]].mean(0)
-    h_freq_diff = torch.abs(h_freq - h_freq_ph)
-    h_freq_diff = (h_freq_diff*100).clamp(min=0, max=1.0)
-    h_freq_diff = gaussian_filter(h_freq_diff, 5)
+        final = final.squeeze(0).cpu().float().numpy()
 
-    u_phase = torch.as_tensor(h_freq_diff)
-    u_phase = u_phase.detach().cpu()
-    u_phase = transforms.ToPILImage()(u_phase)
-    u_phase.save(args.out_dir + f'{args.output}_uncertainty_phase_net.png')
-    
-    # For debugging
-    vals_high_real = get_last_value_levels(vals_g, use_levels=1)
-    h_freq_real = pyr.inv_filter(vals_high_real).detach().cpu()[:, :shape_r[0], :shape_r[1]].mean(0)
-    print(h_freq_real.max())
-    h_freq_diff_real = torch.abs(h_freq_real - h_freq_ph)
-    h_freq_diff_real = (h_freq_diff_real*50).clamp(min=0, max=1.0)
-    
-    u_real = torch.as_tensor(h_freq_diff_real)
-    u_real = u_real.detach().cpu()
-    u_real = transforms.ToPILImage()(u_real)
-    u_real.save(args.out_dir + f'{args.output}_uncertainty_real_phase_net.png')
-    
-    # Second adacof uncertainty map for finding artifacts
-    vals_diff = subtract_values(vals_ph, vals_ada)
-    vals_diff = get_first_value_levels(vals_diff, use_levels=6)
-    freq_diff = pyr.inv_filter(vals_diff).detach().cpu()[:, :shape_r[0], :shape_r[1]].mean(0)*30
-    
-    u_ada = torch.as_tensor(freq_diff)
+    u_ada = torch.as_tensor(test1)
     u_ada = u_ada.detach().cpu()
     u_ada = transforms.ToPILImage()(u_ada)
-    u_ada.save(args.out_dir + f'{args.output}_uncertainty_adacof2a.png')
-
-    freq_diff_median = median_filter(freq_diff, size=50)
-    freq_diff = torch.abs(freq_diff - freq_diff_median)
-    freq_diff = (freq_diff * 5).clamp(0, 1)
+    u_ada.save(args.out_dir + f'{args.output}_FINAL1.png')
     
-    u_ada = torch.as_tensor(freq_diff)
+    u_ada = torch.as_tensor(test2)
     u_ada = u_ada.detach().cpu()
     u_ada = transforms.ToPILImage()(u_ada)
-    u_ada.save(args.out_dir + f'{args.output}_uncertainty_adacof2b.png')
+    u_ada.save(args.out_dir + f'{args.output}_FINAL2.png')
+    
+    u_ada = torch.as_tensor(final)
+    u_ada = u_ada.detach().cpu()
+    u_ada = transforms.ToPILImage()(u_ada)
+    u_ada.save(args.out_dir + f'{args.output}_FINAL.png')
 
 if __name__ == "__main__":
     main(None, None)

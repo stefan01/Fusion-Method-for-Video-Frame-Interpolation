@@ -15,7 +15,9 @@ from PIL import Image
 from src.adacof.models import Model
 from src.phase_net.phase_net import PhaseNet
 from types import SimpleNamespace
-from src.fusion_net.fusion_net import FusionNet, FusionNetBoth
+from src.fusion_net.fusion_net import FusionNet
+from scipy.ndimage import maximum_filter, median_filter, sobel, convolve
+from scipy.ndimage.filters import gaussian_filter
 
 import matplotlib.pyplot as plt
 
@@ -33,13 +35,20 @@ parser.add_argument('--adacof_kernel_size', type=int, default=5)
 parser.add_argument('--adacof_dilation', type=int, default=1)
 
 parser.add_argument('--checkpoint', type=str,
-                    default='./src/fusion_net/fusion_net1.pt')
+                    default='./src/fusion_net/fusion_net.pt')
 
 parser.add_argument('--first_frame', type=str,
-                    default='./sample_twoframe/0.png')
+                    default='counter_examples/lights/001.png')
 parser.add_argument('--second_frame', type=str,
-                    default='./sample_twoframe/1.png')
+                    default='counter_examples/lights/003.png')
 parser.add_argument('--output_frame', type=str, default='./output.png')
+
+parser.add_argument('--output_phase', action='store_true')
+parser.add_argument('--output_adacof', action='store_true')
+parser.add_argument('--output_frame_phase', type=str,
+                    default='./output_phase.png')
+parser.add_argument('--output_frame_adacof', type=str,
+                    default='./output_adacof.png')
 
 parser.add_argument('--model', type=int, default=1)
 
@@ -54,19 +63,26 @@ def to_variable(x):
     return Variable(x)
 
 
-def main(loaded_adacof_model, loaded_fusion_net):
-    interp(parser.parse_args(), loaded_fusion_net)
+def main():
+    interp(parser.parse_args())
 
 
-def interp(args, loaded_adacof_model=None, loaded_fusion_net=None, high_level=False):
+def crop_center(img, cropx, cropy):
+    y, x, _ = img.shape
+    startx = x//2-(cropx//2)
+    starty = y//2-(cropy//2)
+    return img[starty:starty+cropy, startx:startx+cropx]
+
+
+def interp(args, high_level=False):
     torch.cuda.set_device(args.gpu_id)
     # Warnings and device
     warnings.filterwarnings("ignore")
     device = torch.device('cuda:{}'.format(args.gpu_id))
 
     # Adacof model
-    if loaded_adacof_model:
-        adacof_model = loaded_adacof_model
+    if args.loaded_adacof_model:
+        adacof_model = args.loaded_adacof_model
     else:
         adacof_args = SimpleNamespace(
             gpu_id=args.gpu_id,
@@ -82,165 +98,195 @@ def interp(args, loaded_adacof_model=None, loaded_fusion_net=None, high_level=Fa
         adacof_model.load(checkpoint['state_dict'])
 
     # Import images
-    img_1 = np.array(Image.open(args.first_frame))
-    img_2 = np.array(Image.open(args.second_frame))
-    shape_r = img_1.shape
+    img1 = np.array(Image.open(args.first_frame))
+    img2 = np.array(Image.open(args.second_frame))
 
-    with torch.no_grad():
-        frame_out1, frame_out2, ada_res, uncertainty_mask = adacof_model(
-            torch.as_tensor(img_1).permute(
-                2, 0, 1).float().unsqueeze(0).to(device)/255,
-            torch.as_tensor(img_2).permute(2, 0, 1).float().unsqueeze(0).to(device)/255)
+    # Crop images
+    dim = 512
+    img1 = crop_center(img1, dim, dim)
+    img2 = crop_center(img2, dim, dim)
 
-        frame_out1, frame_out2 = frame_out1.squeeze(0).permute(
-            1, 2, 0).cpu().numpy(), frame_out2.squeeze(0).permute(1, 2, 0).cpu().numpy()
-        frame_ada_res = ada_res.squeeze(0).permute(1, 2, 0).cpu().numpy()
-
-        frame_out1_pad = pad_img(frame_out1)
-        frame_out2_pad = pad_img(frame_out2)
-        frame_ada_res_pad = pad_img(frame_ada_res)
-
-    # Normalize and pad images
-    img_1_pad = pad_img(img_1/255)
-    img_2_pad = pad_img(img_2/255)
-
-    # To tensors
-    img_1 = rgb2lab_single(torch.as_tensor(
-        img_1_pad).permute(2, 0, 1).float()).to(device)
-    img_2 = rgb2lab_single(torch.as_tensor(
-        img_2_pad).permute(2, 0, 1).float()).to(device)
-    frame_1 = rgb2lab_single(torch.as_tensor(
-        frame_out1_pad).permute(2, 0, 1).float()).to(device)
-    frame_2 = rgb2lab_single(torch.as_tensor(
-        frame_out2_pad).permute(2, 0, 1).float()).to(device)
-    frame_res = rgb2lab_single(torch.as_tensor(
-        frame_ada_res_pad).permute(2, 0, 1).float()).to(device)
+    # Import images
+    rgb_frame1 = torch.as_tensor(img1).permute(
+        2, 0, 1).float().to(device)/255
+    rgb_frame2 = torch.as_tensor(img2).permute(
+        2, 0, 1).float().to(device)/255
+    shape_r = rgb_frame1.shape
+    # 3, 256, 256
 
     # Build pyramid
     pyr = Pyramid(
-        height=calc_pyr_height(img_1),
+        height=calc_pyr_height(rgb_frame1),
         nbands=4,
         scale_factor=np.sqrt(2),
         device=device,
     )
 
-    # High level
-    if args.high_level:
-        ada_pyr = pyr.filter(frame_res)
-        ada_hl = ada_pyr.high_level.clone().detach()
-        del ada_pyr
-        torch.cuda.empty_cache()
+    # Create PhaseNet
+    num_img = 2
+    load_path = './src/phase_net/phase_net.pt'
 
-    # Create FusionNet
-    if args.model == 1:
-        num_img = 4
-        load_path = './src/fusion_net/fusion_net1.pt'
-    if args.model == 2:
-        num_img = 3
-        load_path = './src/fusion_net/fusion_net2.pt'
-    if args.model >= 3:
-        num_img = 2
-        load_path = './src/phase_net/phase_net.pt'
+    phase_net = PhaseNet(pyr, device, num_img=num_img)
+    phase_net.load_state_dict(torch.load(load_path))
+    phase_net.eval()
 
-    if loaded_fusion_net:
-        fusion_net = loaded_fusion_net
-        fusion_net.pyr = pyr
-    else:
-        fusion_net = PhaseNet(pyr, device, num_img=num_img)
-        fusion_net.load_state_dict(torch.load(load_path))
-        fusion_net.eval()
+    fusion_net = args.loaded_fusion_net
+    # Create Fusion Net
+    #fusion_net = FusionNet().to(device)
+    # fusion_net.load_state_dict(torch.load(args.checkpoint))
+    # fusion_net.eval()
 
-    result = []
+    # Transform into lab space
+    lab_frame1 = rgb2lab_single(rgb_frame1).to(device)
+    lab_frame2 = rgb2lab_single(rgb_frame2).to(device)
 
-    # Predict per channel, so we save memory
-    for c in range(3):
-        if args.model == 1:
-            imgs = torch.stack((img_1[c], img_2[c], frame_1[c], frame_2[c]), 0)
-        elif args.model == 2:
-            imgs = torch.stack((img_1[c], img_2[c], frame_res[c]), 0)
-        elif args.model >= 3:
-            imgs = torch.stack((img_1[c], img_2[c]), 0)
+    # Rgb frames
+    rgb_frame1 = rgb_frame1.unsqueeze(0)
+    rgb_frame2 = rgb_frame2.unsqueeze(0)
 
-        # combine images into one big batch and then create the values and separate
-        vals = pyr.filter(imgs.float())
-        vals_list = separate_vals(vals, num_img)
-        vals_t = vals_list[-1]
-        vals_inp = get_concat_layers_inf(pyr, vals_list)
-        inp = fusion_net.normalize_vals(vals_inp)
+    with torch.no_grad():
+        ada_frame1, ada_frame2, ada_pred, flow_var_map = adacof_model(
+            rgb_frame1, rgb_frame2)
 
-        # Delete all old values to free memory
-        del vals
-        del vals_list
-        del vals_t
-        del vals_inp
+        ada_frame1 = ada_frame1.reshape(
+            -1, ada_frame1.shape[2], ada_frame1.shape[3]).to(device).float()
+        ada_frame2 = ada_frame2.reshape(
+            -1, ada_frame2.shape[2], ada_frame2.shape[3]).to(device).float()
+        ada_pred = ada_pred.reshape(-1,
+                                    ada_pred.shape[2], ada_pred.shape[3]).to(device).float()
+        flow_var_map = flow_var_map.squeeze(1)
 
-        torch.cuda.empty_cache()
+    # PhaseNet input preparations
+    img_batch = torch.cat((lab_frame1, lab_frame2), 0)
+    num_vals = 2
 
-        # predicted intersected image of frame1 and frame2
-        with torch.no_grad():
-            vals_r = fusion_net(inp)
+    # Combine images into one big batch and then create the values and separate
+    vals_batch = pyr.filter(img_batch.float())
+    vals_list = separate_vals(vals_batch, num_vals)
+    vals_input = get_concat_layers_inf(pyr, vals_list)
+    input = phase_net.normalize_vals(vals_input)
 
-        if high_level:
-            vals_r.high_level[:] = ada_hl[c]
+    # Delete unnecessary vals
+    del vals_batch
+    del vals_list
+    del vals_input
+    torch.cuda.empty_cache()
 
-        img_r = pyr.inv_filter(vals_r).detach().cpu()
-        result.append(img_r)
+    # PhaseNet Vals Prediction
+    with torch.no_grad():
+        vals_pred = phase_net(input)
 
-    # Put picture together
-    result = torch.cat(result, 0)
-    img_p = lab2rgb_single(result)
+    # RGB prediction without new high levels
+    lab_pred = pyr.inv_filter(vals_pred)
+    lab_pred = lab_pred.reshape(-1, 3,
+                                lab_pred.shape[1], lab_pred.shape[2]).float()
+    r_shape = lab_pred.shape
+    rgb_pred = torch.cat([lab2rgb_single(l) for l in lab_pred], 0).to(device)
 
-    img_p = img_p[:, :shape_r[0], :shape_r[1]]
+    # Exchange high levels of phase net, but copy before that uncertainty of phase
+    phase_pred = rgb_pred.clone()
+
+    # Phase Net uncertainty map
+    ada_pred = torch.as_tensor(ada_pred).to(device)
+    img_batch = torch.cat((ada_pred, rgb_pred), 0)
+    num_vals = 2
+
+    vals_batch = pyr.filter(img_batch.float())
+    vals_ada, vals_ph = separate_vals(vals_batch, num_vals)
+
+    vals_high = get_last_value_levels(vals_ada, use_levels=1)
+    vals_high_ph = get_last_value_levels(vals_ph, use_levels=1)
+    h_freq = pyr.inv_filter(vals_high).detach().cpu().reshape(r_shape).mean(1)
+    h_freq_ph = pyr.inv_filter(
+        vals_high_ph).detach().cpu().reshape(r_shape).mean(1)
+    h_freq_diff = torch.abs(h_freq - h_freq_ph)
+    h_freq_diff = (h_freq_diff*100).clamp(min=0, max=1.0)
+    h_freq_diff = torch.stack(
+        [torch.as_tensor(gaussian_filter(h, 5)) for h in h_freq_diff])
+    phase_uncertainty = h_freq_diff.to(device)
+
+    # Adacof uncertainty map for finding artifacts
+    vals_diff = subtract_values(vals_ph, vals_ada)
+    vals_diff = get_first_value_levels(vals_diff, use_levels=6)
+    freq_diff = pyr.inv_filter(
+        vals_diff).detach().cpu().reshape(r_shape).mean(1)*30
+    freq_diff_median = torch.stack(
+        [torch.as_tensor(median_filter(f, size=50)) for f in freq_diff])
+    freq_diff = torch.abs(freq_diff - freq_diff_median)
+    freq_diff = (freq_diff * 5).clamp(0, 1)
+    ada_uncertainty = freq_diff.to(device)
+
+    # Get baseline
+    with torch.no_grad():
+        _, _, ada_inbetween1, _ = adacof_model(
+            rgb_frame1, phase_pred.reshape(r_shape).float())
+        ada_inbetween1 = ada_inbetween1.to(device).float()
+
+        _, _, ada_inbetween2, _ = adacof_model(
+            phase_pred.reshape(r_shape).float(), rgb_frame2)
+        ada_inbetween2 = ada_inbetween2.to(device).float()
+
+        _, _, base, _ = adacof_model(ada_inbetween1, ada_inbetween2)
+        base = base.to(device).float()
+
+    if False:
+        u_phase = torch.as_tensor(
+            rgb_frame1.reshape(r_shape)[0]).detach().cpu()
+        u_phase = transforms.ToPILImage()(u_phase)
+        u_phase.save(f'./1test_1.png')
+
+        u_phase = torch.as_tensor(
+            rgb_frame2.reshape(r_shape)[0]).detach().cpu()
+        u_phase = transforms.ToPILImage()(u_phase)
+        u_phase.save(f'./1test_2.png')
+
+        u_phase = torch.as_tensor(
+            phase_pred.reshape(r_shape)[0]).detach().cpu()
+        u_phase = transforms.ToPILImage()(u_phase)
+        u_phase.save(f'./1test_phase_pred.png')
+
+        u_phase = torch.as_tensor(ada_pred.reshape(r_shape)[0]).detach().cpu()
+        u_phase = transforms.ToPILImage()(u_phase)
+        u_phase.save(f'./1test_ada_pred.png')
+
+        u_phase = torch.as_tensor(h_freq_diff[0]).detach().cpu()
+        u_phase = transforms.ToPILImage()(u_phase)
+        u_phase.save(f'./1test_phase_unc.png')
+
+        u_phase = torch.as_tensor(flow_var_map[0]).detach().cpu()
+        u_phase = transforms.ToPILImage()(u_phase)
+        u_phase.save(f'./1test_var_flow.png')
+
+        u_phase = torch.as_tensor(freq_diff[0]).detach().cpu()
+        u_phase = transforms.ToPILImage()(u_phase)
+        u_phase.save(f'./1test_ada_unc.png')
+
+        u_phase = torch.as_tensor(base[0]).detach().cpu()
+        u_phase = transforms.ToPILImage()(u_phase)
+        u_phase.save(f'./1test_baseline.png')
 
     # Fusion Net prediction
-    if args.model == 4:
-        # Fusion Net prediction
-        # fusion_net3 = FusionNet_3().to(device)
-        # fusion_net3.load_state_dict(torch.load(
-        #     './src/fusion_net/fusion_net3.pt'))
+    phase_pred = phase_pred.reshape(r_shape).to(device).float()
+    ada_pred = ada_pred.reshape(r_shape).to(device).float()
 
-        if args.mode == "adacof":
-            fusion_net3 = FusionNet().to(device)
-            fusion_net3.load_state_dict(torch.load('./src/fusion_net/fusion_net_adacof.pt'))
-        elif args.mode == "phase":
-            fusion_net3 = FusionNet().to(device)
-            fusion_net3.load_state_dict(torch.load('./src/fusion_net/fusion_net_phase.pt'))
-        elif args.mode == "alpha":
-            fusion_net3 = FusionNetBoth().to(device)
-            fusion_net3.load_state_dict(torch.load('./src/fusion_net/fusion_net_alpha.pt'))
+    if(args.output_phase):
+        imwrite(phase_pred.squeeze(0).clone(),
+                args.output_frame_phase, range=(0, 1))
+    if(args.output_adacof):
+        imwrite(ada_pred.squeeze(0).clone(),
+                args.output_frame_adacof, range=(0, 1))
 
-        """
-        rgb_frame1 = np.array(Image.open(args.first_frame))
-        rgb_frame2 = np.array(Image.open(args.second_frame))
-        img_batch = torch.cat((torch.Tensor(rgb_frame1).to(device), torch.Tensor(rgb_frame2).to(device), img_p.to(device)), 0)
-        img_batch = img_batch.reshape(-1, img_batch.shape[2], img_batch.shape[3])
-        num_vals = 3
-        vals_batch = pyr.filter(img_batch.float())
-        vals_list = separate_vals(vals_batch, num_vals)
-        hl_1 = vals_list[0].high_level.squeeze(1)
-        hl_2 = vals_list[1].high_level.squeeze(1)
-        hl_p = vals_list[2].high_level.squeeze(1)
-        phase_uncertainty = hl_p - (hl_1+hl_2)/2
-        phase_uncertainty = phase_uncertainty.reshape(-1, 3, phase_uncertainty.shape[1], phase_uncertainty.shape[2])
-        phase_uncertainty = phase_uncertainty.mean(1).unsqueeze(1)
-        """
-        phase_uncertainty = uncertainty_mask
+    other = torch.cat([lab_frame1.reshape(r_shape),
+                       lab_frame2.reshape(r_shape)], 1).to(device).float()
+    maps = torch.stack([ada_uncertainty, phase_uncertainty,
+                        flow_var_map], 1).to(device).float()
 
-        phase_pred = result[:, :shape_r[0], :shape_r[1]].to(
-            device).unsqueeze(0).float()
-        ada_pred = rgb2lab(ada_res).to(device).float()
-        other = torch.cat([img_1[:, :shape_r[0], :shape_r[1]].reshape(-1, 3, shape_r[0], shape_r[1]),
-                           img_2[:, :shape_r[0], :shape_r[1]].reshape(-1, 3, shape_r[0], shape_r[1])], 1).float()
+    # Predict
+    final_pred = fusion_net(base, ada_pred, phase_pred, other, maps)
+    final_pred = final_pred.reshape(-1,
+                                    final_pred.shape[2], final_pred.shape[3])
 
-        if args.mode == "alpha":
-            final_pred, _ = fusion_net3(ada_pred, phase_pred, other, uncertainty_mask, phase_uncertainty, mode="alpha")
-        else:
-            final_pred = fusion_net3(ada_pred, phase_pred, other, uncertainty_mask, phase_uncertainty, mode=args.mode)
-        img_p = final_pred.reshape(-1,
-                                   final_pred.shape[2], final_pred.shape[3])
-        img_p = lab2rgb_single(img_p)
-
-    imwrite(img_p.clone(), args.output_frame, range=(0, 1))
+    imwrite(final_pred.clone(), args.output_frame, range=(0, 1))
 
 
 if __name__ == "__main__":

@@ -54,11 +54,12 @@ def interpolate_phasenet(args, a, b, output):
         torch.cuda.empty_cache()
 
 
-def interpolate_fusion(args, adacof_model, fusion_net, a, b, output):
+def interpolate_fusion(args, adacof_model, fusion_net, a, b, output, output_phase, output_adacof):
     """
     Interpolates image a and b (file paths)
     using fusion and saves the result at output
     """
+
     if not os.path.exists(output):
         print('Interpolating {} and {} to {} with fusion method'.format(a, b, output))
         with torch.no_grad():
@@ -77,7 +78,12 @@ def interpolate_fusion(args, adacof_model, fusion_net, a, b, output):
                 loaded_adacof_model=adacof_model,
                 loaded_fusion_net=fusion_net,
                 high_level=args.fusion_replace_high_level,
-                mode=args.mode
+                mode=args.mode,
+                output_phase=True,
+                output_frame_phase=output_phase,
+                output_adacof=True,
+                output_frame_adacof=output_adacof
+
             ))
         torch.cuda.empty_cache()
 
@@ -127,18 +133,20 @@ def interpolate_dataset(args, adacof_model, fusion_net, dataset_path='', max_num
                 output_path_fusion, interpolated_filename)
 
             # Interpolate and create output folders if they don't exist yet
-            if args.adacof:
+            '''if args.adacof:
                 os.makedirs(output_path_adacof, exist_ok=True)
                 interpolate_adacof(
                     args, dataset[i], dataset[i+2], output_path_adacof_image)
             if args.phase:
                 os.makedirs(output_path_phasenet, exist_ok=True)
                 interpolate_phasenet(
-                    args, dataset[i], dataset[i+2], output_path_phasenet_image)
+                    args, dataset[i], dataset[i+2], output_path_phasenet_image)'''
             if args.fusion:
                 os.makedirs(output_path_fusion, exist_ok=True)
+                os.makedirs(output_path_adacof, exist_ok=True)
+                os.makedirs(output_path_phasenet, exist_ok=True)
                 interpolate_fusion(args, adacof_model, fusion_net,
-                                   dataset[i], dataset[i+2], output_path_fusion_image)
+                                   dataset[i], dataset[i+2], output_path_fusion_image, output_path_phasenet_image, output_path_adacof_image)
 
 
 def interpolate_vimeo_testset(args, adacof_model, fusion_net):
@@ -170,15 +178,19 @@ def interpolate_vimeo_testset(args, adacof_model, fusion_net):
         output_path_fusion_image = os.path.join(output_path_fusion, 'im2.png')
 
         # Interpolate and create output folders if they don't exist yet
-        if args.adacof:
+        '''if args.adacof:
             os.makedirs(output_path_adacof, exist_ok=True)
             interpolate_adacof(
                 args, im1, im3, output_path_adacof_image)
         if args.phase:
             os.makedirs(output_path_phasenet, exist_ok=True)
             interpolate_phasenet(
-                args, im1, im3, output_path_phasenet_image)
+                args, im1, im3, output_path_phasenet_image)'''
         if args.fusion:
             os.makedirs(output_path_fusion, exist_ok=True)
+
+            os.makedirs(output_path_phasenet, exist_ok=True)
+            os.makedirs(output_path_adacof, exist_ok=True)
+
             interpolate_fusion(args, adacof_model, fusion_net,
-                               im1, im3, output_path_fusion_image)
+                               im1, im3, output_path_fusion_image, output_path_phasenet_image, output_path_adacof_image)

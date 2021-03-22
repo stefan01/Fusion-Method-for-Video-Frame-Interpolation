@@ -93,7 +93,7 @@ def evaluate_dataset(args, dataset_path):
             args.base_dir, args.img_output, dataset_name, 'phasenet', '*')
         output_path_fusion = os.path.join(
             args.base_dir, args.img_output, dataset_name, 'fusion', '*')
-        
+
         print(dataset_name)
         print(output_path_adacof)
 
@@ -198,23 +198,8 @@ def eval(args):
     adacof_model.load(checkpoint['state_dict'])
 
     # Create FusionNet
-    if args.fusion_model == 1:
-        num_img = 4
-        load_path = './src/fusion_net/fusion_net1.pt'
-    if args.fusion_model == 2:
-        num_img = 3
-        load_path = './src/fusion_net/fusion_net2.pt'
-    if args.fusion_model >= 3:
-        num_img = 2
-        load_path = './src/phase_net/phase_net.pt'
-    pyr = Pyramid(
-        height=4,
-        nbands=4,
-        scale_factor=np.sqrt(2),
-        device=device,
-    )
-    fusion_net = PhaseNet(pyr, device, num_img=num_img)
-    fusion_net.load_state_dict(torch.load(load_path))
+    fusion_net = FusionNet().to(device)
+    fusion_net.load_state_dict(torch.load(args.fusion_checkpoint))
     fusion_net.eval()
 
     # Interpolate
@@ -252,7 +237,7 @@ def eval(args):
 
     if args.adacof and args.phase and args.fusion:
         visualizations.create_images(
-           args, args.test_sets, testset_path, img_output_dir)
+            args, args.test_sets, testset_path, img_output_dir)
 
         # Show Results
     '''i = 0

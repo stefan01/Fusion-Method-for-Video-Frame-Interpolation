@@ -16,14 +16,14 @@ from src.train.pyramid import Pyramid
 
 # import Models
 from src.adacof.models import Model as AdaCofModel
-from src.fusion_net.fusion_net import FusionNet, FusionNet2
+from src.fusion_net.fusion_net import FusionNet
 from src.phase_net.phase_net import PhaseNet
 
 parser = argparse.ArgumentParser(description='FusionNet-Pytorch')
 
 # Parameters
 # Hardware Setting
-parser.add_argument('--gpu_id', type=int, default=0)
+parser.add_argument('--gpu_id', type=int, default=1)
 
 # Directory Setting
 parser.add_argument('--train', type=str, default='./Trainset/vimeo/vimeo_triplet')
@@ -31,7 +31,7 @@ parser.add_argument('--load', type=str, default=None)
 
 # Learning Options
 parser.add_argument('--epochs', type=int, default=1, help='max epochs')
-parser.add_argument('--batch_size', type=int, default=8, help='batch size')
+parser.add_argument('--batch_size', type=int, default=16, help='batch size')
 parser.add_argument('--seed', type=int, default=0, help='seed')
 
 # Optimization specifications
@@ -43,7 +43,6 @@ parser.add_argument('--weight_decay', type=float, default=0, help='weight decay'
 parser.add_argument('--save', type=bool, default=False, help='Save Residuals or not')
 
 # Fusion model settings
-parser.add_argument('--model', type=str, default="none", help='Which version of fusion method')
 parser.add_argument('--dilation', type=int, default=3, help='Dilation size for kernel')
 parser.add_argument('--kernel', type=int, default=3, help='Kernel size')
 parser.add_argument('--pad', type=int, default=3, help='Padding for kernel size')
@@ -54,7 +53,7 @@ def main():
     args = parser.parse_args()
     torch.cuda.set_device(args.gpu_id)
 
-    mode = '_' + args.model if args.model != 'none' else ''
+    mode = ''
     out_dir = f"./output_fusion_net_3{mode}"
 
 
@@ -77,13 +76,14 @@ def main():
     )
 
     # Create Fusion Net
-    fusion_net = FusionNet(kernel=args.kernel, pad=args.dilation, dil=args.pad).to(device)
+    fusion_net = FusionNet().to(device)
 
 
     # Load phase net
     phase_net = PhaseNet(pyr, device, num_img=2)
     phase_net.eval()
     phase_net.load_state_dict(torch.load('src/phase_net/phase_net.pt'))
+    phase_net = phase_net.to(device)
 
     # Load adacof model
     adacof_args = SimpleNamespace(

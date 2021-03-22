@@ -5,9 +5,9 @@ import torch.nn as nn
 
 class FusionNet(torch.nn.Module):
 
-    def __init__(self, num_imgs=4, uncertainty_maps=2, kernel=3, pad=3, dil=3):
+    def __init__(self, num_imgs=5, uncertainty_maps=3, kernel=3, pad=3, dil=3):
         super(FusionNet, self).__init__()
-
+        
         self.net = nn.Sequential(
                 nn.Conv2d(3*num_imgs+uncertainty_maps, 64, kernel_size=kernel, stride=1, padding=pad, dilation=dil),
                 nn.ReLU(),
@@ -18,88 +18,53 @@ class FusionNet(torch.nn.Module):
                 nn.Conv2d(64, 3, kernel_size=kernel, stride=1, padding=pad, dilation=dil),
                 nn.Tanh()
         )
+        
+        input_channels = 3*num_imgs+uncertainty_maps
+        
+        self.encoder_layers = nn.ModuleList([
+            nn.Conv2d(input_channels, 32, kernel_size=5, stride=1, padding=2, padding_mode='reflect'),
+            nn.Conv2d(32,             64, kernel_size=5, stride=1, padding=2, padding_mode='reflect'),
+            nn.Conv2d(64,            128, kernel_size=3, stride=1, padding=1, padding_mode='reflect')
+        ])
+        
+        self.bottleneck_layer = nn.Conv2d(128,  128, kernel_size=3, stride=1, padding=1, padding_mode='reflect')
+        
+        self.decoder_layers = nn.ModuleList([
+            nn.Conv2d(128,  64, kernel_size=5, stride=1, padding=2, padding_mode='reflect'),
+            nn.Conv2d(64,   32, kernel_size=5, stride=1, padding=2, padding_mode='reflect'),
+            nn.Conv2d(32,    3, kernel_size=1, stride=1),
+        ])
+        
+        self.relu = nn.ReLU()
+        self.tanh = nn.Tanh()
+        self.max_pool = nn.MaxPool2d(2, stride=2)
+        self.deconvolution = nn.Upsample(scale_factor=2, mode='bilinear')
 
         self.residuals = []
 
 
-    def forward(self, adacof, phase, other, ada_uncertainty, phase_uncertainty, mode="none", save=False):
-        x = torch.cat([adacof, phase, other, ada_uncertainty, phase_uncertainty], 1)
-        res = self.net(x)
+    def forward(self, base, adacof, phase, other, maps, save=False):
+        x = torch.cat([base, adacof, phase, other, maps], 1)
+        skip = []
+        
+        for layer in self.encoder_layers:
+            x = self.relu(layer(x))
+            # For skipping connections
+            skip.append(x)
+            x = self.max_pool(x)
+            
+        x = self.bottleneck_layer(x)
+            
+        for layer, s in zip(self.decoder_layers, skip[::-1]):
+            x = self.deconvolution(self.relu(x))
+            x = x + s
+            x = layer(x)
+            
+        res = self.tanh(x)
 
-        if mode == "adacof":
-            fusion_frame = adacof + res
-        elif mode == "phase":
-            fusion_frame = phase + res
-        else:
-            fusion_frame = res
+        fusion_frame = base + res
         
         if save:
             self.residuals.append(torch.sum(res).cpu().detach().item())
 
-        return fusion_frame
-
-class FusionNetBoth(torch.nn.Module):
-
-    def __init__(self, num_imgs=4, uncertainty_maps=2, kernel=3, pad=3, dil=3):
-        super(FusionNetBoth, self).__init__()
-
-        self.net = nn.Sequential(
-                nn.Conv2d(3*num_imgs+uncertainty_maps, 64, kernel_size=kernel, stride=1, padding=pad, dilation=dil),
-                nn.ReLU(),
-                nn.Conv2d(64, 64, kernel_size=kernel, stride=1, padding=pad, dilation=dil),
-                nn.ReLU(),
-                nn.Conv2d(64, 64, kernel_size=kernel, stride=1, padding=pad, dilation=dil),
-                nn.ReLU(),
-                nn.Conv2d(64, 3, kernel_size=kernel, stride=1, padding=pad, dilation=dil),
-                nn.Tanh()
-        )
-
-        self.net_alpha = nn.Sequential(
-                nn.Conv2d(3*num_imgs+uncertainty_maps, 64, kernel_size=3, stride=1, padding=3, dilation=3),
-                nn.ReLU(),
-                nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=3, dilation=3),
-                nn.ReLU(),
-                nn.Conv2d(64, 3, kernel_size=3, stride=1, padding=3, dilation=3),
-                nn.Sigmoid()
-        )
-
-        self.residuals = []
-
-
-    def forward(self, adacof, phase, other, ada_uncertainty, phase_uncertainty, mode="alpha", save=False):
-        x = torch.cat([adacof, phase, other, ada_uncertainty, phase_uncertainty], 1)
-        res = self.net(x)
-
-        alpha = self.net_alpha(x)
-        fusion_frame = (alpha*adacof + (1-alpha)*phase) + res
-        
-        if save:
-                self.residuals.append(torch.sum(res).cpu().detach().item())
-                self.residuals.append(torch.sum(alpha).cpu().detach().item())
-
-        return fusion_frame, alpha
-
-class FusionNet2(torch.nn.Module):
-
-    def __init__(self, num_imgs=4):
-        super(FusionNet, self).__init__()
-
-        self.net = nn.Sequential(
-                nn.Conv2d(3*num_imgs+1, 64, kernel_size=3, stride=1, padding=3, dilation=3),
-                nn.ReLU(),
-                nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=3, dilation=3),
-                nn.ReLU(),
-                nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=3, dilation=3),
-                nn.ReLU(),
-                nn.Conv2d(64, 3, kernel_size=3, stride=1, padding=3, dilation=3),
-                nn.Sigmoid()
-        )
-    
-    def forward(self, adacof, phase, other, uncertainty_mask):
-        x = torch.cat([adacof, phase, other, uncertainty_mask], 1)
-        alpha = self.net(x)
-
-        fusion_frame = alpha*adacof + (1-alpha)*phase
-        #print(torch.max(uncertainty_mask), torch.mean(uncertainty_mask.reshape(-1)))
-
-        return fusion_frame, alpha
+        return fusion_frame.clamp(0, 1)

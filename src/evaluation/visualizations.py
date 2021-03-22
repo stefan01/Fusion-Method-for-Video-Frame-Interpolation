@@ -9,6 +9,7 @@ from tqdm import tqdm
 import random
 import numpy as np
 import cv2
+import src.fusion_net.interpolate_twoframe as fusion_interp
 
 
 def create_images(args, testset, test_path, inter_path):
@@ -67,7 +68,8 @@ def create_images(args, testset, test_path, inter_path):
             start_index = int(os.path.splitext(
                 os.path.basename(inter_image_adacof[0]))[0]) - 1
 
-        error = np.load(os.path.join(args.base_dir, 'result_{}.npy'.format(os.path.basename(i))))
+        error = np.load(os.path.join(
+            args.base_dir, 'result_{}.npy'.format(os.path.basename(i))))
 
         for image_idx in range(len(inter_image_adacof)):
             if args.adacof:
@@ -86,11 +88,13 @@ def create_images(args, testset, test_path, inter_path):
             print('Ground truth: {}'.format(
                 ground_truth[start_index + image_idx]))
 
-            draw_difference(adacof_img,
-                            phase_img,
-                            fusion_img,
-                            np.asarray(Image.open(
-                                ground_truth[start_index + image_idx])),
+            target_img = np.asarray(Image.open(
+                ground_truth[start_index + image_idx]))
+
+            draw_difference(fusion_interp.crop_center(adacof_img, 512, 512),
+                            fusion_interp.crop_center(phase_img, 512, 512),
+                            fusion_interp.crop_center(fusion_img, 512, 512),
+                            fusion_interp.crop_center(target_img, 512, 512),
                             out, error[image_idx], image_idx)
 
         input_images = sorted(glob.glob(os.path.join(out, '*.png')))
@@ -337,7 +341,7 @@ def draw_measurements(args, datasets, datasets_results):
         axs[0].set_title('SSIM')
         axs[0].grid()
         rects0 = axs[0].bar(x + interpolation_method_idx*bar_width - (datasets_results[0].shape[1]*bar_width)/2 + 0.5*bar_width, avg_plot, bar_width-0.02,
-                   align='center', label=interpolation_methods[interpolation_method_idx])
+                            align='center', label=interpolation_methods[interpolation_method_idx])
         axs[0].legend(loc='upper right')
         autolabel(axs[0], rects0)
 
@@ -345,7 +349,7 @@ def draw_measurements(args, datasets, datasets_results):
         axs[1].set_title('LPIPS')
         axs[1].grid()
         rects1 = axs[1].bar(x + interpolation_method_idx*bar_width - (datasets_results[0].shape[1]*bar_width)/2 + 0.5*bar_width, avg_plot, bar_width-0.02,
-                   align='center', label=interpolation_methods[interpolation_method_idx])
+                            align='center', label=interpolation_methods[interpolation_method_idx])
         axs[1].legend(loc='upper right')
         autolabel(axs[1], rects1)
 
@@ -353,7 +357,7 @@ def draw_measurements(args, datasets, datasets_results):
         axs[2].set_title('PSNR')
         axs[2].grid()
         rects2 = axs[2].bar(x + interpolation_method_idx*bar_width - (datasets_results[0].shape[1]*bar_width)/2 + 0.5*bar_width, avg_plot, bar_width-0.02,
-                   align='center', label=interpolation_methods[interpolation_method_idx])
+                            align='center', label=interpolation_methods[interpolation_method_idx])
         axs[2].legend(loc='upper right')
         autolabel(axs[2], rects2)
 
@@ -361,11 +365,11 @@ def draw_measurements(args, datasets, datasets_results):
         axs[3].set_title('SSD')
         axs[3].grid()
         rects3 = axs[3].bar(x + interpolation_method_idx*bar_width - (datasets_results[0].shape[1]*bar_width)/2 + 0.5*bar_width, avg_plot, bar_width-0.02,
-                   align='center', label=interpolation_methods[interpolation_method_idx])
+                            align='center', label=interpolation_methods[interpolation_method_idx])
         axs[3].legend(loc='upper right')
         autolabel(axs[3], rects3)
 
-    #axs[4].table(cellText=datasets_results)
+    # axs[4].table(cellText=datasets_results)
 
     plt.xticks(x, datasets)
     plt.ylim(bottom=0)
@@ -373,6 +377,7 @@ def draw_measurements(args, datasets, datasets_results):
     plt.savefig(os.path.join(args.base_dir,
                              'results.png'))
     plt.clf()
+
 
 def autolabel(ax, rects):
     """Attach a text label above each bar in *rects*, displaying its height."""
