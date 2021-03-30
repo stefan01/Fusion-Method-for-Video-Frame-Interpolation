@@ -32,6 +32,8 @@ parser.add_argument('--gpu_id', type=int, default=0)
 parser.add_argument('--adacof', action='store_true')
 parser.add_argument('--phase', action='store_true')
 parser.add_argument('--fusion', action='store_true')
+# Compare with Basline Method
+parser.add_argument('--baseline', action='store_true')
 parser.add_argument('--base_dir', type=str, default=os.path.join(
     'Evaluation', datetime.today().strftime('%Y-%m-%d-%H:%M:%S')))
 parser.add_argument('--img_output', type=str, default='interpolated')
@@ -41,7 +43,7 @@ parser.add_argument('--test_sets', type=str, nargs='+',
                     default=['airboard_1', 'airplane_landing', 'airtable_3', 'basketball_1', 'water_ski_2', 'yoyo',
                              'MODE_SH0280', 'MODE_SH0440', 'MODE_SH0450', 'MODE_SH0740', 'MODE_SH0780', 'MODE_SH1010', 'MODE_SH1270',
                              'Flashlight', 'firework', 'lights', 'sun'])
-#parser.add_argument('--combine-results', type=str, nargs='+', action='append')
+# parser.add_argument('--combine-results', type=str, nargs='+', action='append')
 
 # Adacof Parameters
 parser.add_argument('--adacof_model', type=str,
@@ -68,6 +70,8 @@ parser.add_argument('--fusion_replace_high_level', action='store_true')
 parser.add_argument('--vimeo_testset', action='store_true')
 parser.add_argument('--mode', type=str, default='alpha')
 
+parser.add_argument('--dim', type=int, default=512)
+
 
 def evaluate_dataset(args, dataset_path):
     """
@@ -86,6 +90,11 @@ def evaluate_dataset(args, dataset_path):
             args.base_dir, args.img_output, 'phasenet', dataset_path, '*', 'im2.png')
         output_path_fusion = os.path.join(
             args.base_dir, args.img_output, 'fusion', dataset_path, '*', 'im2.png')
+        output_path_baseline = os.path.join(
+            args.base_dir, args.img_output, 'baseline', dataset_path, '*', 'im2.png')
+
+        print(dataset_name)
+        print(output_path_adacof)
     else:
         output_path_adacof = os.path.join(
             args.base_dir, args.img_output, dataset_name, 'adacof', '*')
@@ -93,6 +102,8 @@ def evaluate_dataset(args, dataset_path):
             args.base_dir, args.img_output, dataset_name, 'phasenet', '*')
         output_path_fusion = os.path.join(
             args.base_dir, args.img_output, dataset_name, 'fusion', '*')
+        output_path_baseline = os.path.join(
+            args.base_dir, args.img_output, dataset_name, 'baseline', '*')
 
         print(dataset_name)
         print(output_path_adacof)
@@ -112,11 +123,21 @@ def evaluate_dataset(args, dataset_path):
             glob.glob(output_path_fusion))
         num_img = len(prediction_folder_fusion)
         first_img = prediction_folder_fusion[0]
+    if args.baseline:
+        prediction_folder_baseline = sorted(
+            glob.glob(output_path_baseline))
+        num_img = len(prediction_folder_baseline)
+        first_img = prediction_folder_baseline[0]
 
     if args.vimeo_testset:
+        # Read file with triplets
+        with open(os.path.join('Testset', 'vimeo_interp_test', 'tri_testlist.txt')) as f:
+            triplets = f.readlines()
+            triplets = [x.strip() for x in triplets]
+
         target_folder = sorted(
-            glob.glob(os.path.join('Testset', 'vimeo_interp_test',
-                                   'target', '*', '*', 'im2.png')))
+            [os.path.join('Testset', 'vimeo_interp_test',
+                          'target', triplet, 'im2.png') for triplet in triplets if triplet.startswith(dataset_path)])
     else:
         target_folder = sorted(
             glob.glob(os.path.join('Testset', dataset_path, '*')))
@@ -136,6 +157,8 @@ def evaluate_dataset(args, dataset_path):
         image_target = Image.open(target_folder[start_index + i])
         tensor_target = TF.to_tensor(image_target)
 
+        print(target_folder[start_index+i])
+
         eval_image_results = []
 
         if args.adacof:
@@ -145,6 +168,7 @@ def evaluate_dataset(args, dataset_path):
 
             # Evaluate
             eval_result_adacof = evaluate_image.evaluate_image(
+                args,
                 tensor_prediction_adacof, tensor_target)
             eval_image_results.append(eval_result_adacof)
         if args.phase:
@@ -156,6 +180,7 @@ def evaluate_dataset(args, dataset_path):
 
             # Evaluate
             eval_result_phasenet = evaluate_image.evaluate_image(
+                args,
                 tensor_prediction_phasenet, tensor_target)
             eval_image_results.append(eval_result_phasenet)
         if args.fusion:
@@ -163,10 +188,24 @@ def evaluate_dataset(args, dataset_path):
             image_prediction_fusion = Image.open(prediction_folder_fusion[i])
             tensor_prediction_fusion = TF.to_tensor(image_prediction_fusion)
 
+            print(prediction_folder_fusion[i])
+
             # Evaluate
             eval_result_fusion = evaluate_image.evaluate_image(
+                args,
                 tensor_prediction_fusion, tensor_target)
             eval_image_results.append(eval_result_fusion)
+
+        if args.baseline:
+            # Load Images
+            image_baseline = Image.open(prediction_folder_baseline[i])
+            tensor_baseline = TF.to_tensor(image_baseline)
+
+            # Evaluate
+            eval_result_baseline = evaluate_image.evaluate_image(
+                args,
+                tensor_baseline, tensor_target)
+            eval_image_results.append(eval_result_baseline)
 
         eval_results.append(np.stack(eval_image_results))
 
@@ -220,6 +259,12 @@ def eval(args):
                                    'target', '*')))
         args.test_sets = [os.path.basename(x) for x in testsets_path]
 
+    testset_path = 'Testset/'
+
+    if args.adacof and args.phase and args.fusion:
+        visualizations.create_images(
+            args, args.test_sets, testset_path, img_output_dir)
+
     results_np = []
     for testset in args.test_sets:
         result_path = os.path.join(
@@ -232,12 +277,6 @@ def eval(args):
             result_np = np.array(result)
             np.save(result_path, result_np)
         results_np.append(result_np)
-
-    testset_path = 'Testset/'
-
-    if args.adacof and args.phase and args.fusion:
-        visualizations.create_images(
-            args, args.test_sets, testset_path, img_output_dir)
 
         # Show Results
     '''i = 0

@@ -45,14 +45,19 @@ parser.add_argument('--output_frame', type=str, default='./output.png')
 
 parser.add_argument('--output_phase', action='store_true')
 parser.add_argument('--output_adacof', action='store_true')
+parser.add_argument('--output_baseline', action='store_true')
 parser.add_argument('--output_frame_phase', type=str,
                     default='./output_phase.png')
 parser.add_argument('--output_frame_adacof', type=str,
                     default='./output_adacof.png')
+parser.add_argument('--output_frame_baseline', type=str,
+                    default='./output_baseline.png')
 
 parser.add_argument('--model', type=int, default=1)
 
 parser.add_argument('--high_level', action='store_true')
+
+parser.add_argument('--dim', type=int, default=512)
 
 transform = transforms.Compose([transforms.ToTensor()])
 
@@ -102,7 +107,8 @@ def interp(args, high_level=False):
     img2 = np.array(Image.open(args.second_frame))
 
     # Crop images
-    dim = 512
+    #dim = 512
+    dim = args.dim
     img1 = crop_center(img1, dim, dim)
     img2 = crop_center(img2, dim, dim)
 
@@ -275,6 +281,43 @@ def interp(args, high_level=False):
     if(args.output_adacof):
         imwrite(ada_pred.squeeze(0).clone(),
                 args.output_frame_adacof, range=(0, 1))
+    if(args.output_baseline):
+        DecompValues = namedtuple(
+            'values',
+            'high_level, '
+            'phase, '
+            'amplitude, '
+            'low_level'
+        )
+
+        # transform in lab-space
+        lab_ada = rgb2lab_single(ada_pred.squeeze(0).clone()).to(device)
+        lab_phase = rgb2lab_single(phase_pred.squeeze(0).clone()).to(device)
+
+        # decompose in steerable pyramid
+        vals_ada = pyr.filter(lab_ada.float())
+        vals_phase = pyr.filter(lab_phase.float())
+
+        split = int(len(vals_ada.phase) / 2)
+        import itertools
+
+        vals_baseline = DecompValues(
+            high_level=vals_ada.high_level,
+            low_level=vals_phase.low_level,
+            phase=list(itertools.chain(
+                *[vals_phase.phase[:split], vals_ada.phase[split:]])),
+            amplitude=list(itertools.chain(
+                *[vals_phase.amplitude[:split], vals_ada.amplitude[split:]])),
+        )
+
+        lab_baseline = pyr.inv_filter(vals_baseline)
+        lab_baseline = lab_baseline.reshape(-1, 3,
+                                            lab_baseline.shape[1], lab_baseline.shape[2]).float()
+        rgb_baseline = torch.cat([lab2rgb_single(l)
+                                  for l in lab_baseline], 0).to(device)
+
+        imwrite(rgb_baseline.squeeze(0),
+                args.output_frame_baseline, range=(0, 1))
 
     other = torch.cat([lab_frame1.reshape(r_shape),
                        lab_frame2.reshape(r_shape)], 1).to(device).float()
