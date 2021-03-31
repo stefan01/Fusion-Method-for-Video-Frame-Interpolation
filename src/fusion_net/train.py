@@ -53,7 +53,7 @@ def main():
     args = parser.parse_args()
     torch.cuda.set_device(args.gpu_id)
 
-    mode = ''
+    mode = '_no_uncertainty_map'
     out_dir = f"./output_fusion_net_3{mode}"
 
 
@@ -76,7 +76,7 @@ def main():
     )
 
     # Create Fusion Net
-    fusion_net = FusionNet().to(device)
+    fusion_net = FusionNet(uncertainty_maps=0).to(device)
 
 
     # Load phase net

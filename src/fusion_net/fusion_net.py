@@ -44,7 +44,11 @@ class FusionNet(torch.nn.Module):
 
 
     def forward(self, base, adacof, phase, other, maps, save=False, variant=0):
+        
+        # Uncertainty maps 
         x = torch.cat([base, adacof, phase, other, maps], 1)
+        #x = torch.cat([base, adacof, phase, other], 1)
+
         skip = []
         
         for layer in self.encoder_layers:
