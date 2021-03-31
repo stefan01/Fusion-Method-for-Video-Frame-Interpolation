@@ -43,7 +43,7 @@ class FusionNet(torch.nn.Module):
         self.residuals = []
 
 
-    def forward(self, base, adacof, phase, other, maps, save=False):
+    def forward(self, base, adacof, phase, other, maps, save=False, variant=0):
         x = torch.cat([base, adacof, phase, other, maps], 1)
         skip = []
         
@@ -62,7 +62,10 @@ class FusionNet(torch.nn.Module):
             
         res = self.tanh(x)
 
-        fusion_frame = base + res
+        if variant == 1:
+            fusion_frame = phase + res
+        else:
+            fusion_frame = base + res
         
         if save:
             self.residuals.append(torch.sum(res).cpu().detach().item())

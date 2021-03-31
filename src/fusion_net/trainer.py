@@ -184,7 +184,6 @@ class Trainer:
             u_phase.save(f'./test_baseline.png')
     
         
-    
         # Fusion Net prediction
         phase_pred = phase_pred.reshape(r_shape).to(self.device).float()
         ada_pred = ada_pred.reshape(r_shape).to(self.device).float()
@@ -194,7 +193,7 @@ class Trainer:
         save = self.args.save
         
         # Predict
-        final_pred = self.fusion_net(base, ada_pred, phase_pred, other, maps, save=save)
+        final_pred = self.fusion_net(base, ada_pred, phase_pred, other, maps, save=save, variant=0)
         final_pred = final_pred.reshape(-1, final_pred.shape[2], final_pred.shape[3])
 
         return final_pred, phase_pred

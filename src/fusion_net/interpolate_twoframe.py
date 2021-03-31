@@ -86,7 +86,7 @@ def interp(args, high_level=False):
     device = torch.device('cuda:{}'.format(args.gpu_id))
 
     # Adacof model
-    if args.loaded_adacof_model:
+    if hasattr(args, 'loaded_adacof_model'):
         adacof_model = args.loaded_adacof_model
     else:
         adacof_args = SimpleNamespace(
@@ -136,11 +136,13 @@ def interp(args, high_level=False):
     phase_net.load_state_dict(torch.load(load_path))
     phase_net.eval()
 
-    fusion_net = args.loaded_fusion_net
-    # Create Fusion Net
-    #fusion_net = FusionNet().to(device)
-    # fusion_net.load_state_dict(torch.load(args.checkpoint))
-    # fusion_net.eval()
+    if hasattr(args, 'loaded_fusion_net'):
+        fusion_net = args.loaded_fusion_net
+    else:
+        # Create Fusion Net
+        fusion_net = FusionNet().to(device)
+        fusion_net.load_state_dict(torch.load(args.checkpoint))
+        fusion_net.eval()
 
     # Transform into lab space
     lab_frame1 = rgb2lab_single(rgb_frame1).to(device)
@@ -325,7 +327,7 @@ def interp(args, high_level=False):
                         flow_var_map], 1).to(device).float()
 
     # Predict
-    final_pred = fusion_net(base, ada_pred, phase_pred, other, maps)
+    final_pred = fusion_net(base, ada_pred, phase_pred, other, maps, variant=0)
     final_pred = final_pred.reshape(-1,
                                     final_pred.shape[2], final_pred.shape[3])
 
@@ -333,4 +335,4 @@ def interp(args, high_level=False):
 
 
 if __name__ == "__main__":
-    main(None, None)
+    main()
