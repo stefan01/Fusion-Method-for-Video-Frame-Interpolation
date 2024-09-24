@@ -7,6 +7,6 @@ pillow==10.3.0
 numpy==1.17.0
 requests==2.32.2
 tqdm==4.66.3
-opencv-python==4.8.1.78
+opencv-python==4.10.0.84
 piq==0.5.2
 scikit-image
